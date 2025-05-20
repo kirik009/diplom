@@ -5,8 +5,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatDateTime, calculateAttendancePercentage } from '@/lib/utils';
-import { Camera, BarChart } from 'lucide-react';
+import { Camera, BarChart, Award } from 'lucide-react';
 import QRScannerModal from '@/components/QRScannerModal';
+import GamificationCard from '@/components/GamificationCard';
 import { User } from '@/contexts/AuthContext';
 import { getQueryFn } from '@/lib/queryClient';
 
@@ -73,7 +74,19 @@ export default function StudentDashboard() {
     queryFn: getQueryFn({ on401: 'returnNull' }),
   });
   
-  const isLoading = attendanceLoading || classesLoading || subjectsLoading;
+  // Fetch user progress data for gamification
+  const { data: userProgress, isLoading: progressLoading } = useQuery({
+    queryKey: ['/api/student/progress'],
+    queryFn: getQueryFn({ on401: 'returnNull' }),
+  });
+
+  // Fetch achievements data for gamification
+  const { data: achievements, isLoading: achievementsLoading } = useQuery({
+    queryKey: ['/api/student/achievements'],
+    queryFn: getQueryFn({ on401: 'returnNull' }),
+  });
+  
+  const isLoading = attendanceLoading || classesLoading || subjectsLoading || progressLoading || achievementsLoading;
   
   // Calculate attendance statistics
   const calculateStats = () => {
@@ -286,6 +299,22 @@ export default function StudentDashboard() {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Gamification Card */}
+      {!isLoading && userProgress && achievements ? (
+        <GamificationCard 
+          userProgress={userProgress} 
+          achievements={achievements} 
+        />
+      ) : (
+        <Card className="mb-6">
+          <CardContent className="p-6 text-center">
+            <Award className="h-12 w-12 mx-auto mb-4 text-muted" />
+            <h3 className="text-xl font-medium text-gray-800 mb-2">Загрузка данных о достижениях...</h3>
+            <p className="text-gray-600">Пожалуйста, подождите</p>
+          </CardContent>
+        </Card>
+      )}
       
       {/* Recent Attendance */}
       <Card className="mb-6">

@@ -467,6 +467,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Internal server error" });
     }
   });
+  
+  // Gamification routes
+  app.get("/api/student/progress", isAuthenticated, hasRole(["student"]), async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const progress = await storage.getUserProgress(userId);
+      const level = await storage.getLevelForPoints(progress.points);
+      res.json({ ...progress, levelInfo: level });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch progress" });
+    }
+  });
+
+  app.get("/api/student/achievements", isAuthenticated, hasRole(["student"]), async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const achievements = await storage.getUserAchievements(userId);
+      res.json(achievements);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch achievements" });
+    }
+  });
+  
+  // Update attendance endpoint to handle gamification
+  app.patch("/api/student/attendance/:id/qr", isAuthenticated, hasRole(["student"]), async (req: Request, res: Response) => {
+    try {
+      const { qrCode } = req.body;
+      const userId = req.session.userId!;
+      
+      // Regular attendance logic
+      const attendanceRecord = await storage.createAttendanceRecord({
+        classId: parseInt(req.params.id),
+        studentId: userId,
+        timestamp: new Date(),
+        status: "present"
+      });
+      
+      // Gamification logic
+      const userProgress = await storage.getUserProgress(userId);
+      
+      // Add attendance points
+      userProgress.points += 10;
+      
+      // Update streak
+      const lastAttendanceDate = userProgress.lastAttendance ? new Date(userProgress.lastAttendance) : null;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (lastAttendanceDate) {
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        yesterday.setHours(0, 0, 0, 0);
+        
+        if (lastAttendanceDate.getTime() === yesterday.getTime()) {
+          userProgress.streak += 1;
+          userProgress.points += 5; // Bonus for maintaining streak
+        } else if (lastAttendanceDate.getTime() < yesterday.getTime()) {
+          userProgress.streak = 1; // Reset streak
+        }
+      } else {
+        userProgress.streak = 1; // First attendance
+      }
+      
+      userProgress.lastAttendance = today;
+      
+      // Update level based on points
+      const level = await storage.getLevelForPoints(userProgress.points);
+      userProgress.level = level.level;
+      
+      // Check for achievements
+      const attendanceRecords = await storage.getAttendanceRecordsByStudent(userId);
+      const totalAttendance = attendanceRecords.length;
+      
+      // First attendance achievement
+      if (totalAttendance === 1) {
+        await storage.unlockAchievement(userId, 1);
+      }
+      
+      // 10 attendances achievement
+      if (totalAttendance === 10) {
+        await storage.unlockAchievement(userId, 2);
+      }
+      
+      // 50 attendances achievement
+      if (totalAttendance === 50) {
+        await storage.unlockAchievement(userId, 3);
+      }
+      
+      // Streak achievements
+      if (userProgress.streak === 7) {
+        await storage.unlockAchievement(userId, 4); // Week streak
+      }
+      
+      if (userProgress.streak === 30) {
+        await storage.unlockAchievement(userId, 5); // Month streak
+      }
+      
+      // Points achievements
+      if (userProgress.points >= 100 && !userProgress.achievements.includes(6)) {
+        await storage.unlockAchievement(userId, 6); // 100 points
+      }
+      
+      if (userProgress.points >= 1000 && !userProgress.achievements.includes(7)) {
+        await storage.unlockAchievement(userId, 7); // 1000 points
+      }
+      
+      if (userProgress.points >= 10000 && !userProgress.achievements.includes(8)) {
+        await storage.unlockAchievement(userId, 8); // 10000 points
+      }
+      
+      // Save progress
+      await storage.updateUserProgress(userId, userProgress);
+      
+      res.json({
+        attendanceRecord,
+        progress: {
+          ...userProgress,
+          levelInfo: level
+        }
+      });
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;
