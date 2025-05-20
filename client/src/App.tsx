@@ -61,6 +61,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
+      <Route path="/register" component={() => import("@/pages/Register").then(mod => <mod.default />)} />
       <Route path="/student" component={() => <ProtectedRoute component={StudentDashboard} allowedRoles={['student']} />} />
       <Route path="/teacher" component={() => <ProtectedRoute component={TeacherDashboard} allowedRoles={['teacher', 'admin']} />} />
       <Route path="/admin" component={() => <ProtectedRoute component={AdminDashboard} allowedRoles={['admin']} />} />

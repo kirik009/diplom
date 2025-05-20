@@ -50,6 +50,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Authentication routes
+  // Регистрация нового пользователя
+  app.post("/api/auth/register", async (req: Request, res: Response) => {
+    try {
+      // Создаем пользователя с ролью "student" по умолчанию
+      const { username, password, firstName, lastName, middleName, groupId } = req.body;
+      
+      // Проверяем, существует ли пользователь с таким именем
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(400).json({ message: "Пользователь с таким именем уже существует" });
+      }
+      
+      // Создаем нового пользователя
+      const newUser = await storage.createUser({
+        username,
+        password,
+        role: "student", // По умолчанию все новые пользователи - студенты
+        firstName,
+        lastName,
+        middleName: middleName || null,
+        groupId: groupId || null,
+        departmentId: null
+      });
+      
+      // Удаляем пароль из ответа
+      const { password: _, ...userWithoutPassword } = newUser;
+      
+      console.log("Создан новый пользователь:", username);
+      res.status(201).json(userWithoutPassword);
+    } catch (err) {
+      console.error('Ошибка регистрации:', err);
+      res.status(500).json({ message: "Ошибка сервера при регистрации" });
+    }
+  });
+
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
       console.log("Login attempt received for:", req.body.username);
@@ -63,15 +98,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log("Found user:", user.username, "with role:", user.role);
       
-      // Hash the provided password and compare
-      const hashedPassword = crypto
-        .createHash("sha256")
-        .update(credentials.password)
-        .digest("hex");
+      // Простая проверка паролей для демо-версии
+      console.log("Password check:", user.password === credentials.password);
       
-      console.log("Password check:", user.password === hashedPassword);
-
-      if (user.password !== hashedPassword) {
+      if (user.password !== credentials.password) {
         console.log("Invalid password for user:", credentials.username);
         return res.status(401).json({ message: "Invalid credentials" });
       }

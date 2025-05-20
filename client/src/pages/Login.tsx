@@ -28,6 +28,7 @@ export default function Login() {
     setIsLoading(true);
     try {
       console.log('Attempting login with:', data.username);
+       console.log(data.password);
       const user = await login(data.username, data.password);
       console.log('Login successful, user data:', user);
       

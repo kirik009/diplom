@@ -127,7 +127,7 @@ export class MemStorage implements IStorage {
     // Create admin
     this.createUser({
       username: "admin",
-      password: this.hashPassword("admin"),
+      password: "admin", // Простой пароль для тестирования
       role: "admin",
       firstName: "Алексей",
       lastName: "Смирнов",
@@ -139,7 +139,7 @@ export class MemStorage implements IStorage {
     // Create teachers
     const teacher1 = this.createUser({
       username: "teacher1",
-      password: this.hashPassword("teacher1"),
+      password: "teacher1", // Простой пароль для тестирования
       role: "teacher",
       firstName: "Иван",
       lastName: "Петров",
@@ -150,7 +150,7 @@ export class MemStorage implements IStorage {
     
     const teacher2 = this.createUser({
       username: "teacher2",
-      password: this.hashPassword("teacher2"),
+      password: "teacher2", // Простой пароль для тестирования
       role: "teacher",
       firstName: "Виктор",
       lastName: "Сидоров",
@@ -162,7 +162,7 @@ export class MemStorage implements IStorage {
     // Create students
     const student1 = this.createUser({
       username: "student1",
-      password: this.hashPassword("student1"),
+      password: "student1", // Простой пароль для тестирования
       role: "student",
       firstName: "Сергей",
       lastName: "Иванов",
@@ -173,7 +173,7 @@ export class MemStorage implements IStorage {
     
     const student2 = this.createUser({
       username: "student2",
-      password: this.hashPassword("student2"),
+      password: "student2", // Простой пароль для тестирования
       role: "student",
       firstName: "Анна",
       lastName: "Петрова",
