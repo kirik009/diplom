@@ -392,12 +392,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     hasRole(["admin"]),
     async (req: Request, res: Response) => {
       try {
-        // This would be a join operation in a real DB
-        // For now, we'll return all attendance records
-        const records = Array.from(storage.getAllAttendanceRecords 
-          ? storage.getAllAttendanceRecords() 
-          : []);
-        res.json(records);
+        // Since we don't have a direct method to get all records, we'll combine class-specific ones
+        const classes = await storage.getAllClasses();
+        let allRecords: any[] = [];
+        
+        // Fetch attendance records for each class
+        for (const cls of classes) {
+          const records = await storage.getAttendanceRecordsByClass(cls.id);
+          allRecords = [...allRecords, ...records];
+        }
+        
+        res.json(allRecords);
       } catch (err) {
         res.status(500).json({ message: "Internal server error" });
       }

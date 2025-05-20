@@ -133,11 +133,6 @@
     @apply animate-fadeIn;
   }
   
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  
   /* Tab content */
   .tab-content {
     @apply hidden;
