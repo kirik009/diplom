@@ -57,6 +57,13 @@ export interface IStorage {
   getReport(id: number): Promise<Report | undefined>;
   getAllReports(): Promise<Report[]>;
   createReport(report: InsertReport): Promise<Report>;
+  
+  // Gamification operations
+  getUserProgress(userId: number): Promise<any>;
+  updateUserProgress(userId: number, progress: any): Promise<any>;
+  getUserAchievements(userId: number): Promise<any[]>;
+  unlockAchievement(userId: number, achievementId: number): Promise<void>;
+  getLevelForPoints(points: number): Promise<any>;
 }
 
 export class MemStorage implements IStorage {
@@ -68,6 +75,8 @@ export class MemStorage implements IStorage {
   private classes: Map<number, Class>;
   private attendanceRecords: Map<number, AttendanceRecord>;
   private reports: Map<number, Report>;
+  private userProgress: Map<number, any>;
+  private userAchievements: Map<number, Set<number>>;
   
   private currentUserId: number;
   private currentGroupId: number;
@@ -87,6 +96,8 @@ export class MemStorage implements IStorage {
     this.classes = new Map();
     this.attendanceRecords = new Map();
     this.reports = new Map();
+    this.userProgress = new Map();
+    this.userAchievements = new Map();
     
     this.currentUserId = 1;
     this.currentGroupId = 1;
@@ -429,6 +440,69 @@ export class MemStorage implements IStorage {
     const newReport: Report = { ...report, id };
     this.reports.set(id, newReport);
     return newReport;
+  }
+
+  // Gamification operations
+  async getUserProgress(userId: number): Promise<any> {
+    if (!this.userProgress.has(userId)) {
+      // Initialize user progress with default values
+      const defaultProgress = {
+        userId,
+        points: 0,
+        streak: 0,
+        lastAttendance: null,
+        level: 1,
+        achievements: []
+      };
+      this.userProgress.set(userId, defaultProgress);
+      this.userAchievements.set(userId, new Set());
+    }
+    return this.userProgress.get(userId);
+  }
+
+  async updateUserProgress(userId: number, progress: any): Promise<any> {
+    const currentProgress = await this.getUserProgress(userId);
+    const updatedProgress = { ...currentProgress, ...progress };
+    this.userProgress.set(userId, updatedProgress);
+    return updatedProgress;
+  }
+
+  async getUserAchievements(userId: number): Promise<any[]> {
+    const { achievements: achievementIds } = await this.getUserProgress(userId);
+    const achievementsList = [];
+
+    for (const id of achievementIds) {
+      // Import achievements from shared gamification file
+      const achievement = require("@shared/gamification").achievements.find(
+        (a: any) => a.id === id
+      );
+      if (achievement) {
+        achievementsList.push({ ...achievement, unlocked: true });
+      }
+    }
+
+    // Also add locked achievements
+    const lockedAchievements = require("@shared/gamification").achievements
+      .filter((a: any) => !achievementIds.includes(a.id))
+      .map((a: any) => ({ ...a, unlocked: false }));
+
+    return [...achievementsList, ...lockedAchievements];
+  }
+
+  async unlockAchievement(userId: number, achievementId: number): Promise<void> {
+    const userProgress = await this.getUserProgress(userId);
+    if (!userProgress.achievements.includes(achievementId)) {
+      userProgress.achievements.push(achievementId);
+      userProgress.points += 50; // Bonus points for achievement
+      await this.updateUserProgress(userId, userProgress);
+    }
+  }
+
+  async getLevelForPoints(points: number): Promise<any> {
+    const levels = require("@shared/gamification").levels;
+    return levels.find(
+      (level: any) => points >= level.minPoints && points <= level.maxPoints
+    );
   }
 }
 
