@@ -52,22 +52,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
+      console.log("Login attempt received for:", req.body.username);
       const credentials = loginSchema.parse(req.body);
       const user = await storage.getUserByUsername(credentials.username);
 
       if (!user) {
+        console.log("User not found:", credentials.username);
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
+      console.log("Found user:", user.username, "with role:", user.role);
+      
       // Hash the provided password and compare
       const hashedPassword = crypto
         .createHash("sha256")
         .update(credentials.password)
         .digest("hex");
+      
+      console.log("Password check:", user.password === hashedPassword);
 
       if (user.password !== hashedPassword) {
+        console.log("Invalid password for user:", credentials.username);
         return res.status(401).json({ message: "Invalid credentials" });
       }
+      
+      console.log("Authentication successful for:", credentials.username);
 
       // Set session data
       req.session.userId = user.id;
