@@ -1,5 +1,7 @@
-import { useAuthContext } from '@/contexts/AuthContext';
+// @/hooks/useAuth.tsx
+import { useContext } from 'react';
+import { AuthContext } from '@/contexts/AuthContext';
 
 export function useAuth() {
-  return useAuthContext();
+  return useContext(AuthContext);
 }

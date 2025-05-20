@@ -12,7 +12,7 @@ import StudentDashboard from "@/pages/StudentDashboard";
 import TeacherDashboard from "@/pages/TeacherDashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
 import { useAuth } from "@/hooks/useAuth";
-
+import { AuthProvider } from "@/contexts/AuthContext";
 // Динамический импорт страницы регистрации
 const Register = React.lazy(() => import("@/pages/Register"));
 
@@ -81,7 +81,9 @@ function Router() {
 }
 
 function App() {
+  
   return (
+    <AuthProvider>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <div className="min-h-screen flex flex-col">
@@ -94,6 +96,7 @@ function App() {
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
+    </AuthProvider>
   );
 }
 

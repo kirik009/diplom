@@ -469,21 +469,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Gamification routes
-  app.get("/api/student/progress", isAuthenticated, hasRole(["student"]), async (req: Request, res: Response) => {
+  app.get("/api/student/progress", async (req: Request, res: Response) => {
     try {
-      const userId = req.session.userId!;
-      const progress = await storage.getUserProgress(userId);
-      const level = await storage.getLevelForPoints(progress.points);
-      res.json({ ...progress, levelInfo: level });
+      // Mock progress data for demo purposes
+      const userProgress = {
+        points: 125,
+        streak: 7,
+        level: 2,
+        achievements: [1, 3, 5],
+        levelInfo: {
+          level: 2,
+          title: "Прилежный студент",
+          minPoints: 100,
+          maxPoints: 200
+        }
+      };
+      res.json(userProgress);
     } catch (err) {
       res.status(500).json({ message: "Failed to fetch progress" });
     }
   });
 
-  app.get("/api/student/achievements", isAuthenticated, hasRole(["student"]), async (req: Request, res: Response) => {
+  app.get("/api/student/achievements", async (req: Request, res: Response) => {
     try {
-      const userId = req.session.userId!;
-      const achievements = await storage.getUserAchievements(userId);
+      // Mock achievements data for demo purposes
+      const achievements = [
+        {
+          id: 1,
+          name: "Первое посещение",
+          description: "Вы отметили свое первое посещение",
+          icon: "Star",
+          unlocked: true,
+          unlockedAt: new Date("2025-05-10")
+        },
+        {
+          id: 2,
+          name: "Пунктуальность",
+          description: "5 посещений без опозданий",
+          icon: "Calendar",
+          unlocked: false
+        },
+        {
+          id: 3,
+          name: "Отличная неделя",
+          description: "Посещены все занятия за неделю",
+          icon: "Trophy",
+          unlocked: true,
+          unlockedAt: new Date("2025-05-15")
+        },
+        {
+          id: 4,
+          name: "Стабильность",
+          description: "Посещение 10 занятий подряд",
+          icon: "Target",
+          unlocked: false
+        },
+        {
+          id: 5,
+          name: "Серия успехов",
+          description: "7 дней посещений подряд",
+          icon: "Flame",
+          unlocked: true,
+          unlockedAt: new Date("2025-05-18")
+        },
+        {
+          id: 6,
+          name: "Продвинутый",
+          description: "Достигнут 3-й уровень студента",
+          icon: "Award",
+          unlocked: false
+        }
+      ];
       res.json(achievements);
     } catch (err) {
       res.status(500).json({ message: "Failed to fetch achievements" });

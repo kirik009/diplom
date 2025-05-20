@@ -15,7 +15,7 @@ export default function Login() {
   const { login } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const form = useForm({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -23,24 +23,28 @@ export default function Login() {
       password: '',
     },
   });
-  
+
   const onSubmit = async (data: { username: string; password: string }) => {
     setIsLoading(true);
     try {
-      console.log('Attempting login with:', data.username);
-       console.log(data.password);
+      console.log('Attempting login with credentials:', data);
+
       const user = await login(data.username, data.password);
-      console.log('Login successful, user data:', user);
-      
+      console.log('Login successful, received user:', user);
+
+      if (!user) {
+        throw new Error('No user data returned');
+      }
+
       toast({
         title: 'Успешный вход',
-        description: `Добро пожаловать, ${user.firstName}!`,
+        description: `Добро пожаловать, ${user.firstName || user.username}!`,
       });
-      
-      // Redirect based on role
-      const role = user.role.toLowerCase();
-      console.log('Redirecting based on role:', role);
-      
+
+      // Проверяем роль и перенаправляем
+      const role = user.role?.toLowerCase();
+      console.log('User role:', role);
+
       switch (role) {
         case 'student':
           window.location.href = '/student';
@@ -52,14 +56,17 @@ export default function Login() {
           window.location.href = '/admin';
           break;
         default:
-          console.log('Unknown role:', role);
+          console.warn('Unknown role, redirecting to home');
           window.location.href = '/';
       }
-    } catch (error) {
-      console.error('Login error details:', error);
+    } catch (error: any) {
+      console.error('Full login error:', error);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+
       toast({
         title: 'Ошибка входа',
-        description: 'Неверное имя пользователя или пароль',
+        description: error.message || 'Неверное имя пользователя или пароль',
         variant: 'destructive',
       });
     } finally {
@@ -94,13 +101,14 @@ export default function Login() {
                         placeholder="Введите имя пользователя"
                         disabled={isLoading}
                         {...field}
+                        autoComplete="username"
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="password"
@@ -114,35 +122,24 @@ export default function Login() {
                         placeholder="Введите пароль"
                         disabled={isLoading}
                         {...field}
+                        autoComplete="current-password"
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
-              <div className="space-y-3">
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Вход...' : 'Войти'}
-                </Button>
-                
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => window.location.href = '/register'}
-                  disabled={isLoading}
-                >
-                  Зарегистрироваться
-                </Button>
-              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Вход...' : 'Войти'}
+              </Button>
             </form>
           </Form>
-          
+
           <div className="mt-6">
             <p className="text-sm text-muted-foreground text-center">
               Демонстрационные аккаунты:
@@ -150,15 +147,15 @@ export default function Login() {
             <div className="mt-2 text-sm grid grid-cols-3 gap-2 text-center">
               <div className="p-2 border rounded-md">
                 <div className="font-medium">Студент</div>
-                <div className="text-muted-foreground">student1 / student1</div>
+                <div className="text-muted-foreground">student1<br/>student1</div>
               </div>
               <div className="p-2 border rounded-md">
                 <div className="font-medium">Преподаватель</div>
-                <div className="text-muted-foreground">teacher1 / teacher1</div>
+                <div className="text-muted-foreground">teacher1<br/>teacher1</div>
               </div>
               <div className="p-2 border rounded-md">
                 <div className="font-medium">Администратор</div>
-                <div className="text-muted-foreground">admin / admin</div>
+                <div className="text-muted-foreground">admin<br/>admin</div>
               </div>
             </div>
           </div>
