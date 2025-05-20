@@ -1,3 +1,4 @@
+import React, { Suspense } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -11,6 +12,9 @@ import StudentDashboard from "@/pages/StudentDashboard";
 import TeacherDashboard from "@/pages/TeacherDashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
 import { useAuth } from "@/hooks/useAuth";
+
+// Динамический импорт страницы регистрации
+const Register = React.lazy(() => import("@/pages/Register"));
 
 function ProtectedRoute({ 
   component: Component, 
@@ -61,7 +65,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
-      <Route path="/register" component={() => import("@/pages/Register").then(mod => <mod.default />)} />
+      <Route path="/register" component={Register} />
       <Route path="/student" component={() => <ProtectedRoute component={StudentDashboard} allowedRoles={['student']} />} />
       <Route path="/teacher" component={() => <ProtectedRoute component={TeacherDashboard} allowedRoles={['teacher', 'admin']} />} />
       <Route path="/admin" component={() => <ProtectedRoute component={AdminDashboard} allowedRoles={['admin']} />} />

@@ -272,7 +272,7 @@ export default function Register() {
                   type="button"
                   variant="outline"
                   className="w-full"
-                  onClick={() => navigate('/login')}
+                  onClick={() => setLocation('/login')}
                   disabled={isLoading}
                 >
                   Уже есть аккаунт? Войти

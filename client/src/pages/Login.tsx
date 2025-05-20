@@ -121,13 +121,25 @@ export default function Login() {
                 )}
               />
               
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Вход...' : 'Войти'}
-              </Button>
+              <div className="space-y-3">
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Вход...' : 'Войти'}
+                </Button>
+                
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => window.location.href = '/register'}
+                  disabled={isLoading}
+                >
+                  Зарегистрироваться
+                </Button>
+              </div>
             </form>
           </Form>
           
