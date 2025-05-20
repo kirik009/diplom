@@ -27,14 +27,20 @@ export default function Login() {
   const onSubmit = async (data: { username: string; password: string }) => {
     setIsLoading(true);
     try {
+      console.log('Attempting login with:', data.username);
       const user = await login(data.username, data.password);
+      console.log('Login successful, user data:', user);
+      
       toast({
         title: 'Успешный вход',
         description: `Добро пожаловать, ${user.firstName}!`,
       });
       
       // Redirect based on role
-      switch (user.role) {
+      const role = user.role.toLowerCase();
+      console.log('Redirecting based on role:', role);
+      
+      switch (role) {
         case 'student':
           window.location.href = '/student';
           break;
@@ -45,9 +51,11 @@ export default function Login() {
           window.location.href = '/admin';
           break;
         default:
+          console.log('Unknown role:', role);
           window.location.href = '/';
       }
     } catch (error) {
+      console.error('Login error details:', error);
       toast({
         title: 'Ошибка входа',
         description: 'Неверное имя пользователя или пароль',
