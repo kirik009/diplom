@@ -28,8 +28,14 @@ export const storage = {
   },
 
   async getUserByUsername(username: string) {
-    const users = await db.select().from(schema.users).where(eq(schema.users.username, username));
-    return users[0] || null;
+    try {
+      const users = await db.select().from(schema.users).where(eq(schema.users.username, username));
+      console.log(`Found ${users.length} users with username: ${username}`);
+      return users[0] || null;
+    } catch (error) {
+      console.error("Error getting user by username:", error);
+      return null;
+    }
   },
 
   async getUser(id: number) {

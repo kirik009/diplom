@@ -89,21 +89,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("Login attempt received for:", req.body.username);
       const credentials = loginSchema.parse(req.body);
+      
+      // Получаем пользователя из хранилища
       const user = await storage.getUserByUsername(credentials.username);
 
       if (!user) {
         console.log("User not found:", credentials.username);
-        return res.status(401).json({ message: "Invalid credentials" });
+        return res.status(401).json({ message: "Неверное имя пользователя или пароль" });
       }
 
       console.log("Found user:", user.username, "with role:", user.role);
       
       // Простая проверка паролей для демо-версии
-      console.log("Password check:", user.password === credentials.password);
+      const passwordMatch = user.password === credentials.password;
+      console.log("Password check:", passwordMatch);
       
-      if (user.password !== credentials.password) {
+      if (!passwordMatch) {
         console.log("Invalid password for user:", credentials.username);
-        return res.status(401).json({ message: "Invalid credentials" });
+        return res.status(401).json({ message: "Неверное имя пользователя или пароль" });
       }
       
       console.log("Authentication successful for:", credentials.username);
@@ -116,10 +119,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { password, ...userWithoutPassword } = user;
       res.json(userWithoutPassword);
     } catch (err) {
+      console.error("Login error:", err);
       if (err instanceof z.ZodError) {
         res.status(400).json({ message: err.errors });
       } else {
-        res.status(500).json({ message: "Internal server error" });
+        res.status(401).json({ message: "Неверное имя пользователя или пароль" });
       }
     }
   });
