@@ -154,13 +154,23 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
         // Обновляем данные в кэше запросов
         queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка операции:', error);
+      let errorMessage = isEditing 
+        ? 'Не удалось обновить пользователя.'
+        : 'Не удалось зарегистрировать пользователя. Возможно, такое имя пользователя уже занято.';
+      
+      // Если сервер вернул ошибку с сообщением
+      if (error.response && error.response.data && error.response.data.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        // Если есть поле message в объекте ошибки
+        errorMessage += ' ' + error.message;
+      }
+      
       toast({
         title: isEditing ? 'Ошибка обновления' : 'Ошибка регистрации',
-        description: isEditing 
-          ? 'Не удалось обновить пользователя.'
-          : 'Не удалось зарегистрировать пользователя. Возможно, такое имя пользователя уже занято.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {

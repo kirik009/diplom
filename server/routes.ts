@@ -446,9 +446,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const { username, password, role, firstName, lastName, middleName, groupId, departmentId } = req.body;
         
+        console.log(`Попытка создания пользователя: ${username}, роль: ${role}`);
+        
         // Проверяем, существует ли пользователь с таким именем
         const existingUser = await storage.getUserByUsername(username);
+        console.log('Результат проверки существующего пользователя:', existingUser ? 'пользователь существует' : 'пользователь не существует');
+        
         if (existingUser) {
+          console.log(`Пользователь с именем ${username} уже существует:`, existingUser);
           return res.status(400).json({ message: "Пользователь с таким именем уже существует" });
         }
         
