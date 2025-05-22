@@ -31,32 +31,7 @@ export const AuthContext = createContext<AuthContextType>({
   },
 });
 
-// Mock users for demo purposes
-const MOCK_USERS = {
-  student: {
-    id: 1,
-    username: 'student',
-    role: 'student',
-    firstName: 'Иван',
-    lastName: 'Студентов',
-    groupId: 1
-  },
-  teacher: {
-    id: 2,
-    username: 'teacher',
-    role: 'teacher',
-    firstName: 'Петр',
-    lastName: 'Преподавателев',
-    departmentId: 1
-  },
-  admin: {
-    id: 3,
-    username: 'admin',
-    role: 'admin',
-    firstName: 'Админ',
-    lastName: 'Администраторов'
-  }
-};
+
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -81,32 +56,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     
     try {
-      // For the demo, directly use mock users based on username
-      // In a real app, this would make an API call
-      console.log('Attempting login with credentials:', { username, password });
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error('Неверное имя пользователя или пароль');
+      }
+
+      const userData = await response.json();
+      setUser(userData);
+      localStorage.setItem('currentUser', JSON.stringify(userData));
       
-      // Simple authentication for demo purposes
-      if (username === 'student' || username === 'student1') {
-        const userData = MOCK_USERS.student;
-        setUser(userData);
-        localStorage.setItem('currentUser', JSON.stringify(userData));
-        setLocation('/student');
-        return userData;
-      } else if (username === 'teacher') {
-        const userData = MOCK_USERS.teacher;
-        setUser(userData);
-        localStorage.setItem('currentUser', JSON.stringify(userData));
-        setLocation('/teacher');
-        return userData;
-      } else if (username === 'admin') {
-        const userData = MOCK_USERS.admin;
-        setUser(userData);
-        localStorage.setItem('currentUser', JSON.stringify(userData));
-        setLocation('/admin');
-        return userData;
+      switch (userData.role) {
+        case 'student':
+          setLocation('/student');
+          break;
+        case 'teacher':
+          setLocation('/teacher');
+          break;
+        case 'admin':
+          setLocation('/admin');
+          break;
       }
       
-      throw new Error('Неверное имя пользователя или пароль');
+      return userData;
     } catch (error) {
       console.error('Full login error:', error);
       console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
