@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Users, School, Calendar, ClipboardList, Download, Eye, Trash, FileText } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { useLocation } from 'wouter';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
