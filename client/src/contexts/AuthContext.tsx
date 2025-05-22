@@ -18,6 +18,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (username: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
+  register: (data: any) => Promise<User>;
 }
 
 export const AuthContext = createContext<AuthContextType>({
@@ -102,7 +103,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLocation('/login');
   };
 
+  const register = async (data: any): Promise<User> => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка при регистрации');
+      }
+
+      const userData = await response.json();
+      setUser(userData);
+      localStorage.setItem('currentUser', JSON.stringify(userData));
+      setLocation('/student');
+      return userData;
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value = {
+    register,
     user,
     isLoading,
     login,
