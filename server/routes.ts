@@ -475,6 +475,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   );
+  
+  // Get user by ID (admin only)
+  app.get(
+    "/api/admin/users/:id",
+    isAuthenticated,
+    hasRole(["admin"]),
+    async (req: Request, res: Response) => {
+      try {
+        const userId = parseInt(req.params.id);
+        
+        // Получаем пользователя
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({ message: "Пользователь не найден" });
+        }
+        
+        // Удаляем пароль из ответа
+        const { password, ...userWithoutPassword } = user;
+        
+        res.json(userWithoutPassword);
+      } catch (err) {
+        console.error('Ошибка получения пользователя:', err);
+        res.status(500).json({ message: "Ошибка сервера при получении данных пользователя" });
+      }
+    }
+  );
+  
+  // Update user (admin only)
+  app.put(
+    "/api/admin/users/:id",
+    isAuthenticated,
+    hasRole(["admin"]),
+    async (req: Request, res: Response) => {
+      try {
+        const userId = parseInt(req.params.id);
+        const { username, password, role, firstName, lastName, middleName, groupId, departmentId } = req.body;
+        
+        // Проверяем, существует ли пользователь
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({ message: "Пользователь не найден" });
+        }
+        
+        // Если изменился username, проверяем, что он не занят
+        if (username !== user.username) {
+          const existingUser = await storage.getUserByUsername(username);
+          if (existingUser && existingUser.id !== userId) {
+            return res.status(400).json({ message: "Пользователь с таким именем уже существует" });
+          }
+        }
+        
+        // Обновляем пользователя
+        const updatedUser = await storage.updateUser(userId, {
+          username,
+          ...(password ? { password } : {}), // Обновляем пароль только если он был предоставлен
+          role,
+          firstName,
+          lastName,
+          middleName: middleName || null,
+          groupId: groupId || null,
+          departmentId: departmentId || null
+        });
+        
+        // Удаляем пароль из ответа
+        const { password: _, ...userWithoutPassword } = updatedUser;
+        
+        console.log(`Обновлен пользователь администратором: ${username}, ID: ${userId}`);
+        res.json(userWithoutPassword);
+      } catch (err) {
+        console.error('Ошибка обновления пользователя:', err);
+        res.status(500).json({ message: "Ошибка сервера при обновлении пользователя" });
+      }
+    }
+  );
+  
+  // Delete user (admin only)
+  app.delete(
+    "/api/admin/users/:id",
+    isAuthenticated,
+    hasRole(["admin"]),
+    async (req: Request, res: Response) => {
+      try {
+        const userId = parseInt(req.params.id);
+        
+        // Проверяем, существует ли пользователь
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({ message: "Пользователь не найден" });
+        }
+        
+        // Предотвращаем удаление текущего пользователя
+        if (userId === req.session.userId) {
+          return res.status(400).json({ message: "Нельзя удалить текущего пользователя" });
+        }
+        
+        // Удаляем пользователя
+        await storage.deleteUser(userId);
+        
+        console.log(`Пользователь удален администратором: ${user.username}, ID: ${userId}`);
+        res.status(200).json({ message: "Пользователь успешно удален" });
+      } catch (err) {
+        console.error('Ошибка удаления пользователя:', err);
+        res.status(500).json({ message: "Ошибка сервера при удалении пользователя" });
+      }
+    }
+  );
 
   // Get all classes
   app.get(

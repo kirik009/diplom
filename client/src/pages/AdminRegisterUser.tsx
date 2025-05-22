@@ -1,18 +1,19 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { User, School } from 'lucide-react';
+import { User, School, ArrowLeft } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, getQueryFn } from '@/lib/queryClient';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useLocation, useRoute } from 'wouter';
 
 // Схема валидации для регистрации нового пользователя администратором
 const registerUserSchema = z.object({
@@ -30,35 +31,43 @@ const registerUserSchema = z.object({
 
 type RegisterUserFormData = z.infer<typeof registerUserSchema>;
 
-export default function AdminRegisterUser() {
+export default function AdminRegisterUser({ isEditing = false }: { isEditing?: boolean }) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const [, params] = useRoute('/admin/edit-user/:id');
+  const userId = params?.id ? parseInt(params.id) : null;
   
   // Получаем список групп для выбора
   const { data: groups = [] } = useQuery({
     queryKey: ['/api/groups'],
-    queryFn: async ({ queryKey }) => {
-      const res = await fetch(queryKey[0] as string, {
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Failed to fetch groups');
-      return res.json();
-    }
+    queryFn: getQueryFn({ on401: 'returnNull' }),
   });
   
   // Получаем список кафедр для выбора
   const { data: departments = [] } = useQuery({
     queryKey: ['/api/departments'],
-    queryFn: async ({ queryKey }) => {
-      const res = await fetch(queryKey[0] as string, {
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Failed to fetch departments');
-      return res.json();
-    },
+    queryFn: getQueryFn({ on401: 'returnNull' }),
     retry: false,
     onError: () => {
       console.log('Failed to fetch departments, they may not be implemented yet');
+    }
+  });
+  
+  // Получаем данные пользователя для редактирования
+  const { data: userData, isLoading: isUserLoading } = useQuery({
+    queryKey: [`/api/admin/users/${userId}`],
+    queryFn: getQueryFn({ on401: 'returnNull' }),
+    enabled: isEditing && !!userId,
+    retry: false,
+    onError: () => {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось загрузить данные пользователя.',
+        variant: 'destructive',
+      });
+      setLocation('/admin/users');
     }
   });
   
@@ -76,6 +85,22 @@ export default function AdminRegisterUser() {
     },
   });
   
+  // Заполняем форму данными пользователя при редактировании
+  useEffect(() => {
+    if (isEditing && userData) {
+      form.reset({
+        username: userData.username,
+        password: '', // Пароль не отображаем
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        middleName: userData.middleName || '',
+        role: userData.role,
+        groupId: userData.groupId ? userData.groupId.toString() : undefined,
+        departmentId: userData.departmentId ? userData.departmentId.toString() : undefined
+      });
+    }
+  }, [userData, isEditing, form]);
+  
   // Получаем текущую выбранную роль для условного рендеринга полей
   const selectedRole = form.watch('role');
   
@@ -89,23 +114,49 @@ export default function AdminRegisterUser() {
         departmentId: data.departmentId ? parseInt(data.departmentId) : null
       };
       
-      console.log('Регистрация пользователя:', payload);
-      
-      const res = await apiRequest('POST', '/api/admin/users', payload);
-      const user = await res.json();
-      
-      toast({
-        title: 'Пользователь зарегистрирован',
-        description: `${user.firstName} ${user.lastName} успешно добавлен в систему.`,
-      });
-      
-      // Очищаем форму после успешной регистрации
-      form.reset();
+      if (isEditing && userId) {
+        console.log('Обновление пользователя:', payload);
+        
+        // При редактировании, если пароль пустой, удаляем его из запроса
+        if (!payload.password) {
+          delete payload.password;
+        }
+        
+        const res = await apiRequest('PUT', `/api/admin/users/${userId}`, payload);
+        const user = await res.json();
+        
+        toast({
+          title: 'Пользователь обновлен',
+          description: `${user.firstName} ${user.lastName} успешно обновлен.`,
+        });
+        
+        // Обновляем данные в кэше запросов
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+        setLocation('/admin/users');
+      } else {
+        console.log('Регистрация пользователя:', payload);
+        
+        const res = await apiRequest('POST', '/api/admin/users', payload);
+        const user = await res.json();
+        
+        toast({
+          title: 'Пользователь зарегистрирован',
+          description: `${user.firstName} ${user.lastName} успешно добавлен в систему.`,
+        });
+        
+        // Очищаем форму после успешной регистрации
+        form.reset();
+        
+        // Обновляем данные в кэше запросов
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      }
     } catch (error) {
-      console.error('Ошибка регистрации:', error);
+      console.error('Ошибка операции:', error);
       toast({
-        title: 'Ошибка регистрации',
-        description: 'Не удалось зарегистрировать пользователя. Возможно, такое имя пользователя уже занято.',
+        title: isEditing ? 'Ошибка обновления' : 'Ошибка регистрации',
+        description: isEditing 
+          ? 'Не удалось обновить пользователя.'
+          : 'Не удалось зарегистрировать пользователя. Возможно, такое имя пользователя уже занято.',
         variant: 'destructive',
       });
     } finally {
@@ -115,16 +166,29 @@ export default function AdminRegisterUser() {
 
   return (
     <div className="container mx-auto py-6">
+      <div className="flex items-center mb-6">
+        <Button variant="outline" size="icon" onClick={() => setLocation('/admin/users')} className="mr-4">
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h2 className="text-2xl font-bold">
+          {isEditing ? 'Редактирование пользователя' : 'Регистрация пользователя'}
+        </h2>
+      </div>
+      
       <Card className="w-full max-w-2xl mx-auto">
         <CardHeader className="space-y-1">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
               <User className="h-5 w-5 text-white" />
             </div>
-            <CardTitle className="text-2xl font-bold">Регистрация пользователя</CardTitle>
+            <CardTitle className="text-2xl font-bold">
+              {isEditing ? 'Редактирование пользователя' : 'Регистрация пользователя'}
+            </CardTitle>
           </div>
           <p className="text-sm text-muted-foreground">
-            Создание новой учетной записи в системе
+            {isEditing 
+              ? 'Изменение данных существующей учетной записи' 
+              : 'Создание новой учетной записи в системе'}
           </p>
         </CardHeader>
         <CardContent>
@@ -155,14 +219,18 @@ export default function AdminRegisterUser() {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <Label htmlFor="password">Пароль*</Label>
+                      <Label htmlFor="password">
+                        Пароль{isEditing ? '' : '*'} 
+                        {isEditing && <span className="text-xs text-gray-500 ml-1">(оставьте пустым, чтобы не менять)</span>}
+                      </Label>
                       <FormControl>
                         <Input
                           id="password"
                           type="password"
-                          placeholder="Введите пароль"
+                          placeholder={isEditing ? "Новый пароль или оставьте пустым" : "Введите пароль"}
                           disabled={isLoading}
                           {...field}
+                          {...(isEditing ? { required: false } : {})}
                         />
                       </FormControl>
                       <FormMessage />
@@ -321,19 +389,21 @@ export default function AdminRegisterUser() {
               
               <div className="flex justify-end gap-4 mt-6">
                 <Button
-                  type="reset"
+                  type="button"
                   variant="outline"
-                  onClick={() => form.reset()}
+                  onClick={() => isEditing ? setLocation('/admin/users') : form.reset()}
                   disabled={isLoading}
                 >
-                  Отменить
+                  {isEditing ? 'Назад' : 'Отменить'}
                 </Button>
                 
                 <Button
                   type="submit"
                   disabled={isLoading}
                 >
-                  {isLoading ? 'Регистрация...' : 'Зарегистрировать пользователя'}
+                  {isLoading 
+                    ? (isEditing ? 'Сохранение...' : 'Регистрация...') 
+                    : (isEditing ? 'Сохранить изменения' : 'Зарегистрировать пользователя')}
                 </Button>
               </div>
             </form>
