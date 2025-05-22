@@ -31,9 +31,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Middleware to check if user is authenticated
   const isAuthenticated = (req: Request, res: Response, next: Function) => {
-    if (req.session.userId) {
+    // Проверяем наличие сессии
+    if (req.session && req.session.userId) {
       next();
     } else {
+      console.log('Ошибка аутентификации: отсутствует сессия пользователя');
       res.status(401).json({ message: "Unauthorized" });
     }
   };
@@ -53,8 +55,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Регистрация нового пользователя
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
-      // Создаем пользователя с ролью "student" по умолчанию
-      const { username, password, firstName, lastName, middleName, groupId } = req.body;
+      // Получаем данные пользователя
+      const { username, password, firstName, lastName, middleName, groupId, role } = req.body;
       
       // Проверяем, существует ли пользователь с таким именем
       const existingUser = await storage.getUserByUsername(username);
@@ -62,11 +64,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Пользователь с таким именем уже существует" });
       }
       
+      // Проверяем, есть ли уже пользователи в системе
+      // Если нет пользователей, то первый регистрирующийся может быть администратором
+      const users = await storage.getAllUsers();
+      const isFirstUser = users.length === 0;
+      
+      // Определяем роль пользователя
+      let userRole = "student"; // По умолчанию все новые пользователи - студенты
+      
+      // Если это первый пользователь системы или запрос пришел от администратора
+      if (isFirstUser || (req.session && req.session.role === 'admin')) {
+        // Можно установить любую роль из запроса
+        userRole = role || "student";
+      }
+      
       // Создаем нового пользователя
       const newUser = await storage.createUser({
         username,
         password,
-        role: "student", // По умолчанию все новые пользователи - студенты
+        role: userRole,
         firstName,
         lastName,
         middleName: middleName || null,
@@ -77,7 +93,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Удаляем пароль из ответа
       const { password: _, ...userWithoutPassword } = newUser;
       
-      console.log("Создан новый пользователь:", username);
+      console.log(`Создан новый пользователь: ${username}, роль: ${userRole}`);
       res.status(201).json(userWithoutPassword);
     } catch (err) {
       console.error('Ошибка регистрации:', err);

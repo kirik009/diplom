@@ -38,11 +38,23 @@ export const storage = {
       console.log(`Looking for user with username ${username}`);
       // В реальном приложении здесь был бы запрос к базе данных
 
-      // Проверяем, не является ли это демо-пользователем
-      if (username === 'admin' || username === 'teacher' || username === 'student') {
-        console.log(`Username ${username} соответствует демо-пользователю`);
-        // Только для демо, считаем что эти пользователи уже существуют
-        return { username: username, id: username === 'admin' ? 1 : (username === 'teacher' ? 2 : 3) };
+      // Проверяем, есть ли уже пользователи в системе через getAllUsers
+      const allUsers = await this.getAllUsers();
+      console.log(`Текущее количество пользователей в системе: ${allUsers.length}`);
+      
+      // Если система уже инициализирована (есть пользователи)
+      if (allUsers.length > 0) {
+        // Проверяем, не является ли это демо-пользователем
+        if (username === 'admin' || username === 'teacher' || username === 'student') {
+          console.log(`Username ${username} соответствует демо-пользователю`);
+          // Только для демо, считаем что эти пользователи уже существуют
+          return { username: username, id: username === 'admin' ? 1 : (username === 'teacher' ? 2 : 3) };
+        }
+      } else {
+        // Если система пустая (нет пользователей), то разрешаем создание первого пользователя
+        // даже если это admin, teacher или student
+        console.log(`Система пустая, разрешаем создание пользователя ${username}`);
+        return null;
       }
 
       // Для всех остальных пользователей - нет совпадения

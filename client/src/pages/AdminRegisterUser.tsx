@@ -126,33 +126,78 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
           delete payload.password;
         }
         
-        const res = await apiRequest('PUT', `/api/admin/users/${userId}`, payload);
-        const user = await res.json();
-        
-        toast({
-          title: 'Пользователь обновлен',
-          description: `${user.firstName} ${user.lastName} успешно обновлен.`,
-        });
-        
-        // Обновляем данные в кэше запросов
-        queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
-        setLocation('/admin/users');
+        try {
+          const res = await apiRequest('PUT', `/api/admin/users/${userId}`, payload);
+          const user = await res.json();
+          
+          toast({
+            title: 'Пользователь обновлен',
+            description: `${user.firstName} ${user.lastName} успешно обновлен.`,
+          });
+          
+          // Обновляем данные в кэше запросов
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+          setLocation('/admin/users');
+        } catch (err: any) {
+          // Проверка на ошибку авторизации
+          if (err.message && err.message.includes('401')) {
+            toast({
+              title: 'Ошибка авторизации',
+              description: 'Для редактирования пользователя необходимо войти в систему как администратор.',
+              variant: 'destructive',
+            });
+            setLocation('/login');
+          } else {
+            throw err; // Прокидываем остальные ошибки дальше
+          }
+        }
       } else {
         console.log('Регистрация пользователя:', payload);
         
-        const res = await apiRequest('POST', '/api/admin/users', payload);
-        const user = await res.json();
-        
-        toast({
-          title: 'Пользователь зарегистрирован',
-          description: `${user.firstName} ${user.lastName} успешно добавлен в систему.`,
-        });
-        
-        // Очищаем форму после успешной регистрации
-        form.reset();
-        
-        // Обновляем данные в кэше запросов
-        queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+        try {
+          // Пробуем использовать открытый API для регистрации
+          const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            credentials: 'include'
+          });
+          
+          if (!res.ok) {
+            // Если не удалось использовать открытое API, пробуем API для администратора
+            const adminRes = await apiRequest('POST', '/api/admin/users', payload);
+            const user = await adminRes.json();
+            
+            toast({
+              title: 'Пользователь зарегистрирован',
+              description: `${user.firstName} ${user.lastName} успешно добавлен в систему.`,
+            });
+          } else {
+            const user = await res.json();
+            toast({
+              title: 'Пользователь зарегистрирован',
+              description: `${user.firstName} ${user.lastName} успешно добавлен в систему.`,
+            });
+          }
+          
+          // Очищаем форму после успешной регистрации
+          form.reset();
+          
+          // Обновляем данные в кэше запросов
+          queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+        } catch (err: any) {
+          // Проверка на ошибку авторизации
+          if (err.message && err.message.includes('401')) {
+            toast({
+              title: 'Ошибка авторизации',
+              description: 'Для регистрации пользователя необходимо войти в систему как администратор.',
+              variant: 'destructive',
+            });
+            setLocation('/login');
+          } else {
+            throw err; // Прокидываем остальные ошибки дальше
+          }
+        }
       }
     } catch (error: any) {
       console.error('Ошибка операции:', error);
