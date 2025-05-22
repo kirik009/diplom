@@ -14,6 +14,7 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import AdminRegisterUser from "@/pages/AdminRegisterUser";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthProvider } from "@/contexts/AuthContext";
+import AdminUsersManagement from "./pages/AdminUsersManagement";
 // Динамический импорт страницы регистрации
 const Register = React.lazy(() => import("@/pages/Register"));
 
@@ -70,7 +71,8 @@ function Router() {
       <Route path="/student" component={() => <ProtectedRoute component={StudentDashboard} allowedRoles={['student']} />} />
       <Route path="/teacher" component={() => <ProtectedRoute component={TeacherDashboard} allowedRoles={['teacher', 'admin']} />} />
       <Route path="/admin" component={() => <ProtectedRoute component={AdminDashboard} allowedRoles={['admin']} />} />
-      <Route path="/admin/register" component={() => <ProtectedRoute component={AdminRegisterUser} allowedRoles={['admin']} />} />
+      <Route path="/admin/register-user" component={() => <ProtectedRoute component={AdminRegisterUser} allowedRoles={['admin']} />} />
+      <Route path="/admin/users" component={() => <ProtectedRoute component={AdminUsersManagement} allowedRoles={['admin']} />} />
       <Route path="/">
         {() => {
           window.location.href = getDashboardRoute();

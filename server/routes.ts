@@ -6,6 +6,7 @@ import { z } from "zod";
 import * as crypto from "crypto";
 import session from "express-session";
 import MemoryStore from "memorystore";
+import bcrypt from "bcryptjs";
 
 declare module "express-session" {
   interface SessionData {
@@ -54,8 +55,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
       // Создаем пользователя с ролью "student" по умолчанию
-      const { username, password, firstName, lastName, middleName, groupId } = req.body;
-      
+      const { username, password1, firstName, lastName, middleName, groupId } = req.body;
+      const pas = await bcrypt.hash(password1, 10);
       // Проверяем, существует ли пользователь с таким именем
       const existingUser = await storage.getUserByUsername(username);
       if (existingUser) {
@@ -63,9 +64,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Создаем нового пользователя
-      const newUser = await storage.createUser({
+      const [newUser] = await storage.createUser({
         username,
-        password,
+        password:pas,
         role: "student", // По умолчанию все новые пользователи - студенты
         firstName,
         lastName,
@@ -75,7 +76,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Удаляем пароль из ответа
-      const { password: _, ...userWithoutPassword } = newUser;
+      const { password, ...userWithoutPassword } = newUser;
       
       console.log("Создан новый пользователь:", username);
       res.status(201).json(userWithoutPassword);
@@ -90,29 +91,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Login attempt received for:", req.body.username);
       const credentials = loginSchema.parse(req.body);
       
-      // Временное решение для входа администратора пока база данных не работает
-      if (credentials.username === 'admin' && credentials.password === 'admin') {
-        console.log("Using hardcoded admin credentials for testing");
-        const adminUser = {
-          id: 1,
-          username: 'admin',
-          password: 'admin', // В ответе будет удалено
-          role: 'admin',
-          firstName: 'Администратор',
-          lastName: 'Системы',
-          middleName: null,
-          groupId: null,
-          departmentId: null
-        };
+      
         
-        // Устанавливаем сессию
-        req.session.userId = adminUser.id;
-        req.session.role = adminUser.role;
-        
-        // Удаляем пароль из ответа
-        const { password, ...userWithoutPassword } = adminUser;
-        return res.json(userWithoutPassword);
-      }
+       
       
       // Обычный путь через базу данных
       const user = await storage.getUserByUsername(credentials.username);
@@ -123,9 +104,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log("Found user:", user.username, "with role:", user.role);
-      
+      console.log(credentials);
+      console.log(user);
       // Простая проверка паролей для демо-версии
-      const passwordMatch = user.password === credentials.password;
+      const passwordMatch = await bcrypt.compare(credentials.password, user.password);
+
       console.log("Password check:", passwordMatch);
       
       if (!passwordMatch) {

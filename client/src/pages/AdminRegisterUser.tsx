@@ -18,7 +18,7 @@ import { useLocation, useRoute } from 'wouter';
 // Схема валидации для регистрации нового пользователя администратором
 const registerUserSchema = z.object({
   username: z.string().min(3, 'Имя пользователя должно содержать минимум 3 символа'),
-  password: z.string().min(6, 'Пароль должен содержать минимум 6 символов'),
+  password1: z.string().min(6, 'Пароль должен содержать минимум 6 символов'),
   firstName: z.string().min(2, 'Имя должно содержать минимум 2 символа'),
   lastName: z.string().min(2, 'Фамилия должна содержать минимум 2 символа'),
   middleName: z.string().optional(),
@@ -75,7 +75,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
     resolver: zodResolver(registerUserSchema),
     defaultValues: {
       username: '',
-      password: '',
+      password1: '',
       firstName: '',
       lastName: '',
       middleName: '',
@@ -90,7 +90,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
     if (isEditing && userData) {
       form.reset({
         username: userData.username,
-        password: '', // Пароль не отображаем
+        password1: '', // Пароль не отображаем
         firstName: userData.firstName,
         lastName: userData.lastName,
         middleName: userData.middleName || '',
@@ -113,16 +113,16 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
         groupId: data.groupId ? parseInt(data.groupId) : null,
         departmentId: data.departmentId ? parseInt(data.departmentId) : null
       };
-      
+      console.log(payload);
       if (isEditing && userId) {
         console.log('Обновление пользователя:', payload);
         
         // При редактировании, если пароль пустой, удаляем его из запроса
-        if (!payload.password) {
-          delete payload.password;
-        }
+        // if (!payload.password) {
+        //   delete payload.password;
+       // }
         
-        const res = await apiRequest('PUT', `/api/admin/users/${userId}`, payload);
+        const res = await apiRequest('POST', '/api/auth/register', payload);
         const user = await res.json();
         
         toast({
@@ -136,7 +136,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
       } else {
         console.log('Регистрация пользователя:', payload);
         
-        const res = await apiRequest('POST', '/api/admin/users', payload);
+        const res = await apiRequest('POST', '/api/auth/register', payload);
         const user = await res.json();
         
         toast({
@@ -216,16 +216,16 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
                 
                 <FormField
                   control={form.control}
-                  name="password"
+                  name="password1"
                   render={({ field }) => (
                     <FormItem>
-                      <Label htmlFor="password">
+                      <Label htmlFor="password1">
                         Пароль{isEditing ? '' : '*'} 
                         {isEditing && <span className="text-xs text-gray-500 ml-1">(оставьте пустым, чтобы не менять)</span>}
                       </Label>
                       <FormControl>
                         <Input
-                          id="password"
+                          id="password1"
                           type="password"
                           placeholder={isEditing ? "Новый пароль или оставьте пустым" : "Введите пароль"}
                           disabled={isLoading}
