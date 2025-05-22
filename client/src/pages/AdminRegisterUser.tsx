@@ -43,6 +43,10 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
   const { data: groups = [] } = useQuery({
     queryKey: ['/api/groups'],
     queryFn: getQueryFn({ on401: 'returnNull' }),
+    retry: false,
+    onError: () => {
+      console.log('Failed to fetch groups, they may not be implemented yet');
+    }
   });
   
   // Получаем список кафедр для выбора
@@ -335,7 +339,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
                       <Select 
                         onValueChange={field.onChange} 
                         value={field.value}
-                        disabled={isLoading || groups.length === 0}
+                        disabled={isLoading || !groups || groups.length === 0}
                       >
                         <FormControl>
                           <SelectTrigger id="group">
@@ -343,7 +347,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {groups.map((group: any) => (
+                          {groups && groups.map((group: any) => (
                             <SelectItem key={group.id} value={group.id.toString()}>
                               {group.name}
                             </SelectItem>
