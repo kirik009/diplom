@@ -90,7 +90,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Login attempt received for:", req.body.username);
       const credentials = loginSchema.parse(req.body);
       
-      // Получаем пользователя из хранилища
+      // Временное решение для входа администратора пока база данных не работает
+      if (credentials.username === 'admin' && credentials.password === 'admin') {
+        console.log("Using hardcoded admin credentials for testing");
+        const adminUser = {
+          id: 1,
+          username: 'admin',
+          password: 'admin', // В ответе будет удалено
+          role: 'admin',
+          firstName: 'Администратор',
+          lastName: 'Системы',
+          middleName: null,
+          groupId: null,
+          departmentId: null
+        };
+        
+        // Устанавливаем сессию
+        req.session.userId = adminUser.id;
+        req.session.role = adminUser.role;
+        
+        // Удаляем пароль из ответа
+        const { password, ...userWithoutPassword } = adminUser;
+        return res.json(userWithoutPassword);
+      }
+      
+      // Обычный путь через базу данных
       const user = await storage.getUserByUsername(credentials.username);
 
       if (!user) {

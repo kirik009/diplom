@@ -6,7 +6,13 @@ import crypto from 'crypto';
 
 // Initialize PostgreSQL connection pool
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_URL || 'postgres://admin:admin@localhost:5432/attendance',
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
+
+console.log('Database connection configuration:', {
+  connectionString: process.env.DATABASE_URL || 'postgres://admin:admin@localhost:5432/attendance',
+  ssl: process.env.NODE_ENV === 'production'
 });
 
 // Initialize Drizzle with our schema
