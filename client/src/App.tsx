@@ -12,7 +12,6 @@ import StudentDashboard from "@/pages/StudentDashboard";
 import TeacherDashboard from "@/pages/TeacherDashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminRegisterUser from "@/pages/AdminRegisterUser";
-import AdminUsersManagement from "@/pages/AdminUsersManagement";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthProvider } from "@/contexts/AuthContext";
 // Динамический импорт страницы регистрации
@@ -72,7 +71,6 @@ function Router() {
       <Route path="/teacher" component={() => <ProtectedRoute component={TeacherDashboard} allowedRoles={['teacher', 'admin']} />} />
       <Route path="/admin" component={() => <ProtectedRoute component={AdminDashboard} allowedRoles={['admin']} />} />
       <Route path="/admin/register" component={() => <ProtectedRoute component={AdminRegisterUser} allowedRoles={['admin']} />} />
-      <Route path="/admin/users" component={() => <ProtectedRoute component={AdminUsersManagement} allowedRoles={['admin']} />} />
       <Route path="/">
         {() => {
           window.location.href = getDashboardRoute();
