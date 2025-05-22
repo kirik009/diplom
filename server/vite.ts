@@ -4,6 +4,7 @@ import path from "path";
 import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
+// Import nanoid safely to avoid issues with ESM/CJS compatibility
 import { nanoid } from "nanoid";
 
 const viteLogger = createLogger();
