@@ -366,7 +366,7 @@ export default function AdminDashboard() {
                 </div>
                 <h3 className="text-xl font-medium text-gray-700 mb-2">Управление пользователями</h3>
                 <p className="text-gray-500 mb-4">Здесь вы можете добавлять, редактировать и удалять пользователей системы</p>
-                <Button className="mt-2" onClick={() => setLocation('/admin/users')}>Управление пользователями</Button>ers')}>
+                <Button className="mt-2" onClick={() => setLocation('/admin/users')}>
                   Управление пользователями
                 </Button>
               </div>
