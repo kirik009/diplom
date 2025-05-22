@@ -107,7 +107,7 @@ export default function AdminUsersManagement() {
           </Button>
           <h2 className="text-2xl font-bold">Управление пользователями</h2>
         </div>
-        <Button onClick={() => setLocation('/admin/register')}>
+        <Button onClick={() => setLocation('/admin/register-user')}>
           <Plus className="mr-2 h-4 w-4" />
           Добавить пользователя
         </Button>

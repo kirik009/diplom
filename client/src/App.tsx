@@ -73,7 +73,6 @@ function Router() {
       <Route path="/admin" component={() => <ProtectedRoute component={AdminDashboard} allowedRoles={['admin']} />} />
       <Route path="/admin/register" component={() => <ProtectedRoute component={AdminRegisterUser} allowedRoles={['admin']} />} />
       <Route path="/admin/users" component={() => <ProtectedRoute component={AdminUsersManagement} allowedRoles={['admin']} />} />
-      <Route path="/admin/edit-user/:id" component={() => <ProtectedRoute component={AdminRegisterUser} allowedRoles={['admin']} />} />
       <Route path="/">
         {() => {
           window.location.href = getDashboardRoute();

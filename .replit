@@ -7,15 +7,14 @@ channel = "stable-24_05"
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["sh", "-c", "NODE_ENV=production node dist/index.js"]
-build = ["sh", "-c", "npm run build"]
+run = ["sh", "-c", "npm run dev"]
 
 [[ports]]
 localPort = 5000
 externalPort = 80
 
 [workflows]
-runButton = "Start Application"
+runButton = "Start Dev Server"
 
 [[workflows.workflow]]
 name = "Project"
@@ -43,33 +42,3 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run dev"
-
-[[workflows.workflow]]
-name = "Start Server"
-author = 42997986
-mode = "sequential"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run build"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "NODE_ENV=production node dist/index.js"
-
-[[workflows.workflow]]
-name = "Start Application"
-author = 42997986
-mode = "sequential"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm install"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run build"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "NODE_ENV=production node dist/index.js"

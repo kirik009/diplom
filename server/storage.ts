@@ -12,7 +12,7 @@ const pool = new Pool({
 
 console.log('Database connection configuration:', {
   connectionString: process.env.DATABASE_URL || 'postgres://admin:admin@localhost:5432/attendance',
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: process.env.NODE_ENV === 'production'
 });
 
 // Initialize Drizzle with our schema
@@ -25,90 +25,22 @@ const hashPassword = (password: string): string => {
 
 export const storage = {
   // User related operations
-  // Храним пользователей в памяти для демо-версии
-  _mockUsers: Array<any> = [
-    {
-      id: 1,
-      username: 'admin',
-      password: 'admin',
-      role: 'admin',
-      firstName: 'Администратор',
-      lastName: 'Системы',
-      middleName: null,
-      groupId: null,
-      departmentId: null
-    },
-    {
-      id: 2,
-      username: 'teacher',
-      password: 'teacher1',
-      role: 'teacher',
-      firstName: 'Петр',
-      lastName: 'Преподавателев',
-      middleName: null,
-      groupId: null,
-      departmentId: 1
-    },
-    {
-      id: 3,
-      username: 'student',
-      password: 'student1',
-      role: 'student',
-      firstName: 'Иван',
-      lastName: 'Студентов',
-      middleName: null,
-      groupId: 1,
-      departmentId: null
-    }
-  ],
-
   async createUser(userData: schema.InsertUser) {
-    try {
-      console.log(`Создание пользователя: ${userData.username}`);
-      
-      // Проверяем, не существует ли уже пользователь с таким именем
-      const existingUser = await this.getUserByUsername(userData.username);
-      if (existingUser) {
-        throw new Error('Пользователь с таким именем уже существует');
-      }
-      
-      // Создаем нового пользователя с новым ID
-      const newId = this._mockUsers.length > 0 ? 
-        Math.max(...this._mockUsers.map(user => user.id)) + 1 : 1;
-      
-      const newUser = {
-        id: newId,
-        ...userData
-      };
-      
-      // Добавляем в нашу "базу данных"
-      this._mockUsers.push(newUser);
-      
-      console.log(`Пользователь ${userData.username} успешно создан`);
-      return newUser;
-    } catch (error) {
-      console.error('Ошибка при создании пользователя:', error);
-      throw error;
-    }
+    const hashedPassword = hashPassword(userData.password);
+    return await db.insert(schema.users).values({
+      ...userData,
+      password: hashedPassword,
+    }).returning();
   },
 
-  async getUserByUsername(username: string): Promise<any> {
+  async getUserByUsername(username: string) {
     try {
-      console.log(`Looking for user with username ${username}`);
-      
-      // Ищем пользователя в нашем массиве
-      const user = this._mockUsers.find(u => u.username === username);
-      
-      if (user) {
-        console.log(`Пользователь ${username} найден`);
-        return { ...user };
-      }
-      
-      console.log(`Пользователь ${username} не найден`);
-      return null;
+      const users = await db.select().from(schema.users).where(eq(schema.users.username, username));
+      console.log(`Found ${users.length} users with username: ${username}`);
+      return users[0] || null;
     } catch (error) {
-      console.error('Error getting user by username:', error);
-      throw error;
+      console.error("Error getting user by username:", error);
+      return null;
     }
   },
 
@@ -118,8 +50,7 @@ export const storage = {
   },
 
   async getAllUsers() {
-    console.log('Получение всех пользователей');
-    return [...this._mockUsers];
+    return await db.select().from(schema.users);
   },
 
   // Group related operations

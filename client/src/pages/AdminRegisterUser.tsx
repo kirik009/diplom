@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -37,17 +38,13 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
   const queryClient = useQueryClient();
   const [, params] = useRoute('/admin/edit-user/:id');
   const userId = params?.id ? parseInt(params.id) : null;
-
+  
   // Получаем список групп для выбора
   const { data: groups = [] } = useQuery({
     queryKey: ['/api/groups'],
     queryFn: getQueryFn({ on401: 'returnNull' }),
-    retry: false,
-    onError: () => {
-      console.log('Failed to fetch groups, they may not be implemented yet');
-    }
   });
-
+  
   // Получаем список кафедр для выбора
   const { data: departments = [] } = useQuery({
     queryKey: ['/api/departments'],
@@ -57,7 +54,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
       console.log('Failed to fetch departments, they may not be implemented yet');
     }
   });
-
+  
   // Получаем данные пользователя для редактирования
   const { data: userData, isLoading: isUserLoading } = useQuery({
     queryKey: [`/api/admin/users/${userId}`],
@@ -73,7 +70,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
       setLocation('/admin/users');
     }
   });
-
+  
   const form = useForm<RegisterUserFormData>({
     resolver: zodResolver(registerUserSchema),
     defaultValues: {
@@ -87,7 +84,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
       departmentId: undefined
     },
   });
-
+  
   // Заполняем форму данными пользователя при редактировании
   useEffect(() => {
     if (isEditing && userData) {
@@ -103,10 +100,10 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
       });
     }
   }, [userData, isEditing, form]);
-
+  
   // Получаем текущую выбранную роль для условного рендеринга полей
   const selectedRole = form.watch('role');
-
+  
   const onSubmit = async (data: RegisterUserFormData) => {
     setIsLoading(true);
     try {
@@ -116,105 +113,50 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
         groupId: data.groupId ? parseInt(data.groupId) : null,
         departmentId: data.departmentId ? parseInt(data.departmentId) : null
       };
-
+      
       if (isEditing && userId) {
         console.log('Обновление пользователя:', payload);
-
+        
         // При редактировании, если пароль пустой, удаляем его из запроса
         if (!payload.password) {
           delete payload.password;
         }
-
-        try {
-          const res = await apiRequest('PUT', `/api/admin/users/${userId}`, payload);
-          const user = await res.json();
-
-          toast({
-            title: 'Пользователь обновлен',
-            description: `${user.firstName} ${user.lastName} успешно обновлен.`,
-          });
-
-          // Обновляем данные в кэше запросов
-          queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
-          setLocation('/admin/users');
-        } catch (err: any) {
-          // Проверка на ошибку авторизации
-          if (err.message && err.message.includes('401')) {
-            toast({
-              title: 'Ошибка авторизации',
-              description: 'Для редактирования пользователя необходимо войти в систему как администратор.',
-              variant: 'destructive',
-            });
-            setLocation('/login');
-          } else {
-            throw err; // Прокидываем остальные ошибки дальше
-          }
-        }
+        
+        const res = await apiRequest('PUT', `/api/admin/users/${userId}`, payload);
+        const user = await res.json();
+        
+        toast({
+          title: 'Пользователь обновлен',
+          description: `${user.firstName} ${user.lastName} успешно обновлен.`,
+        });
+        
+        // Обновляем данные в кэше запросов
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+        setLocation('/admin/users');
       } else {
         console.log('Регистрация пользователя:', payload);
-
-        try {
-          // Пробуем использовать открытый API для регистрации
-          const res = await fetch('/api/auth/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            credentials: 'include'
-          });
-
-          if (!res.ok) {
-            // Если не удалось использовать открытое API, пробуем API для администратора
-            const adminRes = await apiRequest('POST', '/api/admin/users', payload);
-            const user = await adminRes.json();
-
-            toast({
-              title: 'Пользователь зарегистрирован',
-              description: `${user.firstName} ${user.lastName} успешно добавлен в систему.`,
-            });
-          } else {
-            const user = await res.json();
-            toast({
-              title: 'Пользователь зарегистрирован',
-              description: `${user.firstName} ${user.lastName} успешно добавлен в систему.`,
-            });
-          }
-
-          // Очищаем форму после успешной регистрации
-          form.reset();
-
-          // Обновляем данные в кэше запросов
-          queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
-        } catch (err: any) {
-          // Проверка на ошибку авторизации
-          if (err.message && err.message.includes('401')) {
-            toast({
-              title: 'Ошибка авторизации',
-              description: 'Для регистрации пользователя необходимо войти в систему как администратор.',
-              variant: 'destructive',
-            });
-            setLocation('/login');
-          } else {
-            throw err; // Прокидываем остальные ошибки дальше
-          }
-        }
+        
+        const res = await apiRequest('POST', '/api/admin/users', payload);
+        const user = await res.json();
+        
+        toast({
+          title: 'Пользователь зарегистрирован',
+          description: `${user.firstName} ${user.lastName} успешно добавлен в систему.`,
+        });
+        
+        // Очищаем форму после успешной регистрации
+        form.reset();
+        
+        // Обновляем данные в кэше запросов
+        queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Ошибка операции:', error);
-      let errorMessage = isEditing 
-        ? 'Не удалось обновить пользователя.'
-        : 'Не удалось зарегистрировать пользователя. Возможно, такое имя пользователя уже занято.';
-
-      // Если сервер вернул ошибку с сообщением
-      if (error.response && error.response.data && error.response.data.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.message) {
-        // Если есть поле message в объекте ошибки
-        errorMessage += ' ' + error.message;
-      }
-
       toast({
         title: isEditing ? 'Ошибка обновления' : 'Ошибка регистрации',
-        description: errorMessage,
+        description: isEditing 
+          ? 'Не удалось обновить пользователя.'
+          : 'Не удалось зарегистрировать пользователя. Возможно, такое имя пользователя уже занято.',
         variant: 'destructive',
       });
     } finally {
@@ -232,7 +174,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
           {isEditing ? 'Редактирование пользователя' : 'Регистрация пользователя'}
         </h2>
       </div>
-
+      
       <Card className="w-full max-w-2xl mx-auto">
         <CardHeader className="space-y-1">
           <div className="flex items-center gap-2 mb-2">
@@ -271,7 +213,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
                     </FormItem>
                   )}
                 />
-
+                
                 <FormField
                   control={form.control}
                   name="password"
@@ -296,7 +238,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
                   )}
                 />
               </div>
-
+              
               <FormField
                 control={form.control}
                 name="role"
@@ -323,7 +265,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
                   </FormItem>
                 )}
               />
-
+              
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
@@ -343,7 +285,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
                     </FormItem>
                   )}
                 />
-
+                
                 <FormField
                   control={form.control}
                   name="firstName"
@@ -362,7 +304,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
                     </FormItem>
                   )}
                 />
-
+                
                 <FormField
                   control={form.control}
                   name="middleName"
@@ -382,7 +324,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
                   )}
                 />
               </div>
-
+              
               {selectedRole === 'student' && (
                 <FormField
                   control={form.control}
@@ -393,7 +335,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
                       <Select 
                         onValueChange={field.onChange} 
                         value={field.value}
-                        disabled={isLoading || !groups || groups.length === 0}
+                        disabled={isLoading || groups.length === 0}
                       >
                         <FormControl>
                           <SelectTrigger id="group">
@@ -401,7 +343,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {groups && groups.map((group: any) => (
+                          {groups.map((group: any) => (
                             <SelectItem key={group.id} value={group.id.toString()}>
                               {group.name}
                             </SelectItem>
@@ -413,7 +355,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
                   )}
                 />
               )}
-
+              
               {selectedRole === 'teacher' && (
                 <FormField
                   control={form.control}
@@ -444,7 +386,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
                   )}
                 />
               )}
-
+              
               <div className="flex justify-end gap-4 mt-6">
                 <Button
                   type="button"
@@ -454,7 +396,7 @@ export default function AdminRegisterUser({ isEditing = false }: { isEditing?: b
                 >
                   {isEditing ? 'Назад' : 'Отменить'}
                 </Button>
-
+                
                 <Button
                   type="submit"
                   disabled={isLoading}
