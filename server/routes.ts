@@ -408,6 +408,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   );
+  
+  // Create new user (admin only)
+  app.post(
+    "/api/admin/users",
+    isAuthenticated,
+    hasRole(["admin"]),
+    async (req: Request, res: Response) => {
+      try {
+        const { username, password, role, firstName, lastName, middleName, groupId, departmentId } = req.body;
+        
+        // Проверяем, существует ли пользователь с таким именем
+        const existingUser = await storage.getUserByUsername(username);
+        if (existingUser) {
+          return res.status(400).json({ message: "Пользователь с таким именем уже существует" });
+        }
+        
+        // Создаем нового пользователя
+        const newUser = await storage.createUser({
+          username,
+          password,
+          role,
+          firstName,
+          lastName,
+          middleName: middleName || null,
+          groupId: groupId || null,
+          departmentId: departmentId || null
+        });
+        
+        // Удаляем пароль из ответа
+        const { password: _, ...userWithoutPassword } = newUser;
+        
+        console.log(`Создан новый пользователь администратором: ${username}, роль: ${role}`);
+        res.status(201).json(userWithoutPassword);
+      } catch (err) {
+        console.error('Ошибка регистрации пользователя:', err);
+        res.status(500).json({ message: "Ошибка сервера при регистрации пользователя" });
+      }
+    }
+  );
 
   // Get all classes
   app.get(

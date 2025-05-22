@@ -11,65 +11,67 @@ import { formatDateTime, calculateAttendancePercentage } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Users, School, Calendar, ClipboardList, Download, Eye, Trash, FileText } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { useLocation } from 'wouter';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('reports');
-  
+  const [, setLocation] = useLocation();
+
   // Fetch all users
   const { data: users, isLoading: usersLoading } = useQuery({
     queryKey: ['/api/admin/users'],
     queryFn: getQueryFn({ on401: 'throw' }),
   });
-  
+
   // Fetch all classes
   const { data: classes, isLoading: classesLoading } = useQuery({
     queryKey: ['/api/admin/classes'],
     queryFn: getQueryFn({ on401: 'throw' }),
   });
-  
+
   // Fetch groups
   const { data: groups, isLoading: groupsLoading } = useQuery({
     queryKey: ['/api/groups'],
     queryFn: getQueryFn({ on401: 'throw' }),
   });
-  
+
   // Fetch subjects
   const { data: subjects, isLoading: subjectsLoading } = useQuery({
     queryKey: ['/api/subjects'],
     queryFn: getQueryFn({ on401: 'throw' }),
   });
-  
+
   // Fetch faculties
   const { data: faculties, isLoading: facultiesLoading } = useQuery({
     queryKey: ['/api/faculties'],
     queryFn: getQueryFn({ on401: 'returnNull' }),
   });
-  
+
   const isLoading = usersLoading || classesLoading || groupsLoading || subjectsLoading || facultiesLoading;
-  
+
   // Form state for report generation
   const [reportForm, setReportForm] = useState({
     type: 'attendance',
     period: 'month',
     format: 'pdf'
   });
-  
+
   const handleReportFormChange = (field: string, value: string) => {
     setReportForm({
       ...reportForm,
       [field]: value
     });
   };
-  
+
   const handleGenerateReport = () => {
     toast({
       title: 'Отчет сформирован',
       description: 'Отчет успешно сформирован и готов к скачиванию',
     });
   };
-  
+
   // Calculate summary statistics
   const getSummaryStats = () => {
     if (!users || !classes) {
@@ -79,37 +81,37 @@ export default function AdminDashboard() {
         classes: { count: 0 }
       };
     }
-    
+
     const students = users.filter((user: any) => user.role === 'student');
     const teachers = users.filter((user: any) => user.role === 'teacher');
-    
+
     // Calculate new users in the last month
     const oneMonthAgo = new Date();
     oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-    
+
     // This is mocked since we don't have createdAt fields
     const newStudents = Math.floor(students.length * 0.1); // Assume 10% are new
     const newTeachers = Math.floor(teachers.length * 0.05); // Assume 5% are new
-    
+
     // Classes held in the current month
     const currentMonth = new Date().getMonth();
     const classesThisMonth = classes.filter((cls: any) => {
       return new Date(cls.date).getMonth() === currentMonth;
     });
-    
+
     return {
       students: { count: students.length, newCount: newStudents },
       teachers: { count: teachers.length, newCount: newTeachers },
       classes: { count: classesThisMonth.length }
     };
   };
-  
+
   const summaryStats = getSummaryStats();
-  
+
   // Get faculty attendance stats
   const getFacultyStats = () => {
     if (!faculties) return [];
-    
+
     // Mock data for faculty stats
     return [
       { id: 1, name: 'Физико-математический', percentage: 87 },
@@ -119,13 +121,13 @@ export default function AdminDashboard() {
       { id: 5, name: 'Филологический', percentage: 65 }
     ];
   };
-  
+
   const facultyStats = getFacultyStats();
-  
+
   return (
     <div className="mb-6">
       <h2 className="text-2xl font-medium text-gray-800 mb-4">Панель администратора</h2>
-      
+
       {/* Summary Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <Card className="card">
@@ -159,7 +161,7 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
-      
+
       {/* Admin Tabs */}
       <Card className="mb-8">
         <Tabs defaultValue="reports" onValueChange={setActiveTab}>
@@ -267,7 +269,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </div>
-              
+
               <div>
                 <h3 className="text-lg font-medium text-gray-800 mb-4">Недавние отчеты</h3>
                 <div className="overflow-x-auto">
@@ -355,7 +357,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </TabsContent>
-            
+
             <TabsContent value="users" className="m-0">
               <div className="text-center py-16">
                 <div className="text-gray-400 text-5xl mb-4">
@@ -368,7 +370,7 @@ export default function AdminDashboard() {
                 </Button>
               </div>
             </TabsContent>
-            
+
             <TabsContent value="groups" className="m-0">
               <div className="text-center py-16">
                 <div className="text-gray-400 text-5xl mb-4">
@@ -381,7 +383,7 @@ export default function AdminDashboard() {
                 </Button>
               </div>
             </TabsContent>
-            
+
             <TabsContent value="subjects" className="m-0">
               <div className="text-center py-16">
                 <div className="text-gray-400 text-5xl mb-4">
@@ -394,7 +396,7 @@ export default function AdminDashboard() {
                 </Button>
               </div>
             </TabsContent>
-            
+
             <TabsContent value="settings" className="m-0">
               <div className="text-center py-16">
                 <div className="text-gray-400 text-5xl mb-4">
@@ -410,7 +412,7 @@ export default function AdminDashboard() {
           </div>
         </Tabs>
       </Card>
-      
+
       {/* Overall Statistics */}
       <Card>
         <CardContent className="p-6">

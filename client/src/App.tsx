@@ -11,6 +11,7 @@ import Login from "@/pages/Login";
 import StudentDashboard from "@/pages/StudentDashboard";
 import TeacherDashboard from "@/pages/TeacherDashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
+import AdminRegisterUser from "@/pages/AdminRegisterUser";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthProvider } from "@/contexts/AuthContext";
 // Динамический импорт страницы регистрации
@@ -24,32 +25,32 @@ function ProtectedRoute({
   allowedRoles?: string[] 
 }) {
   const { user, isLoading } = useAuth();
-  
+
   if (isLoading) {
     return <div className="flex justify-center items-center min-h-screen">
       <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
     </div>;
   }
-  
+
   if (!user) {
     window.location.href = '/login';
     return null;
   }
-  
+
   if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
     window.location.href = '/';
     return null;
   }
-  
+
   return <Component />;
 }
 
 function Router() {
   const { user } = useAuth();
-  
+
   const getDashboardRoute = () => {
     if (!user) return '/login';
-    
+
     switch (user.role) {
       case 'student':
         return '/student';
@@ -61,7 +62,7 @@ function Router() {
         return '/login';
     }
   };
-  
+
   return (
     <Switch>
       <Route path="/login" component={Login} />
@@ -69,6 +70,7 @@ function Router() {
       <Route path="/student" component={() => <ProtectedRoute component={StudentDashboard} allowedRoles={['student']} />} />
       <Route path="/teacher" component={() => <ProtectedRoute component={TeacherDashboard} allowedRoles={['teacher', 'admin']} />} />
       <Route path="/admin" component={() => <ProtectedRoute component={AdminDashboard} allowedRoles={['admin']} />} />
+      <Route path="/admin/register" component={() => <ProtectedRoute component={AdminRegisterUser} allowedRoles={['admin']} />} />
       <Route path="/">
         {() => {
           window.location.href = getDashboardRoute();
@@ -81,7 +83,7 @@ function Router() {
 }
 
 function App() {
-  
+
   return (
     <AuthProvider>
     <QueryClientProvider client={queryClient}>
