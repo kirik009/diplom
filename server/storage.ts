@@ -4,6 +4,8 @@ import * as schema from '../shared/schema';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
+
 
 // Инициализация окружения
 dotenv.config();
@@ -25,14 +27,14 @@ pool.connect()
 export const db = drizzle(pool, { schema });
 
 // Хелпер для хеширования паролей
-const hashPassword = (password: string): string => {
-  return crypto.createHash('sha256').update(password).digest('hex');
+const hashPassword = async(password: string): Promise<string> => {
+  return await bcrypt.hash(password, 10);
 };
 
 export const storage = {
   // Операции с пользователями
   async createUser(userData: schema.InsertUser) {
-    const hashedPassword = hashPassword(userData.password);
+    const hashedPassword = await hashPassword(userData.password);
     return await db.insert(schema.users).values({
       ...userData,
       password: hashedPassword,
@@ -49,6 +51,193 @@ export const storage = {
       return null;
     }
   },
+   async getUserById(id: number) {
+    try {
+      const [user] = await db.select().from(schema.users).where(eq(schema.users.id, id));
+      return user;
+    } catch (error) {
+      console.error("Error getting user by username:", error);
+      return null;
+    }
+  },
 
-  
+    async getAllUsers() {
+    try {
+      const users = await db.select().from(schema.users);
+      return users;
+    } catch (error) {
+      console.error("Error getting all users:", error);
+      return null;
+    }
+  },
+
+
+      async deleteUser(id: number) {
+   try {
+           await db.delete(schema.users).where(eq(schema.users.id, id));
+         } catch (error) {
+           console.error("Error deleting task:", error);
+           throw new Error("Failed to delete task");
+         }
+  },
+
+    async getAllGroups() {
+    try {
+      const groups = await db.select({
+        id: schema.groups.id,
+        name: schema.groups.name,
+        
+        facultyName: schema.faculties.name
+      }).from(schema.groups).
+      leftJoin(schema.faculties, eq(schema.faculties.id, schema.groups.facultyId));
+      return groups;
+    } catch (error) {
+      console.error("Error getting all groups:", error);
+      return null;
+    }
+  },
+
+      async getAllDepartments() {
+    try {
+      const departments = await db.select({
+        id: schema.departments.id,
+        name: schema.departments.name,
+        
+        facultyName: schema.faculties.name
+      }).from(schema.departments).
+      leftJoin(schema.faculties, eq(schema.faculties.id, schema.departments.facultyId));
+      return departments;
+    } catch (error) {
+      console.error("Error getting all groups:", error);
+      return null;
+    }
+  },
+
+    async getAllSubjects() {
+    try {
+      const subjects = await db.select().from(schema.subjects);
+      return subjects;
+    } catch (error) {
+      console.error("Error getting all groups:", error);
+      return null;
+    }
+  },
+
+    async getAllFaculties() {
+    try {
+      const faculties = await db.select().from(schema.faculties);
+      return faculties;
+    } catch (error) {
+      console.error("Error getting all faculties:", error);
+      return null;
+    }
+  },
+
+   async createFaculty(facultyData: schema.InsertFaculty) {
+    
+    return await db.insert(schema.faculties).values(facultyData).returning();
+  },
+
+   async deleteFaculty(id: number) {
+   try {
+           await db.delete(schema.faculties).where(eq(schema.faculties.id, id));
+         } catch (error) {
+           console.error("Error deleting task:", error);
+           throw new Error("Failed to delete task");
+         }
+  },
+    async createGroup(groupData: schema.InsertGroup) {
+    
+    return await db.insert(schema.groups).values(groupData).returning();
+  },
+
+   async deleteGroup(id: number) {
+   try {
+           await db.delete(schema.groups).where(eq(schema.groups.id, id));
+         } catch (error) {
+           console.error("Error deleting task:", error);
+           throw new Error("Failed to delete task");
+         }
+  },
+
+
+     async createDepartment(departmentData: schema.InsertDepartment) {
+    
+    return await db.insert(schema.departments).values(departmentData).returning();
+  },
+
+   async deleteDepartment(id: number) {
+   try {
+           await db.delete(schema.departments).where(eq(schema.departments.id, id));
+         } catch (error) {
+           console.error("Error deleting department:", error);
+           throw new Error("Failed to delete department");
+         }
+  },
+     async createSubject(subjectData: schema.InsertSubject) {
+    
+    return await db.insert(schema.subjects).values(subjectData).returning();
+  },
+
+   async deleteSubject(id: number) {
+   try {
+           await db.delete(schema.subjects).where(eq(schema.subjects.id, id));
+         } catch (error) {
+           console.error("Error deleting subject:", error);
+           throw new Error("Failed to delete subject");
+         }
+  },
+
+       async createClass(classData: schema.InsertClass) {
+        classData.endTime = new Date(classData.endTime);
+        classData.startTime = new Date(classData.startTime);
+        classData.date = new Date(classData.date);
+  classData.qrCode = `class:${classData.classroom}:${classData.date.toISOString()}:${classData.teacherId}:${classData.subjectId}:${classData.groupId}`;
+    return await db.insert(schema.classes).values(classData).returning();
+  },
+
+    async getClassesByTeacher(id: number) {
+    try {
+      const classes = await db.select().from(schema.classes).where(eq(schema.classes.teacherId, id));
+      return classes;
+    } catch (error) {
+      console.error("Error getting classes by teacher:", error);
+      return null;
+    }
+  },
+
+      async getClassesByGroup(id: number) {
+    try {
+      const classes = await db.select().from(schema.classes).where(eq(schema.classes.groupId, id));
+      return classes;
+    } catch (error) {
+      console.error("Error getting classes by teacher:", error);
+      return null;
+    }
+  },
+
+  async getClass(id: number) {
+    try {
+      const [user] = await db.select().from(schema.classes).where(eq(schema.classes.id, id));
+      return user;
+    } catch (error) {
+      console.error("Error getting class:", error);
+      return null;
+    }
+  },
+
+    async updateClass(id: number, updatedClass: Partial<schema.InsertClass>) {
+      try {
+            const [updatedExercise] = await db
+              .update(schema.classes)
+              .set(updatedClass)
+              .where(eq(schema.classes.id, id))
+              .returning();
+            
+            return updatedExercise;
+          } catch (error) {
+            console.error("Error ending class:", error);
+            return undefined;
+          }
+  },
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { QrCode, Users, X, RefreshCw, BarChart, Eye, Download } from 'lucide-react';
 import QRCodeModal from '@/components/QRCodeModal';
 import { Progress } from '@/components/ui/progress';
-
+import  { QRCodeCanvas } from 'qrcode.react';
 interface Class {
   id: number;
   subjectId: number;
@@ -72,25 +72,25 @@ export default function TeacherDashboard() {
   });
   
   // Fetch teacher's classes
-  const { data: classes, isLoading: classesLoading } = useQuery({
+  const { data: classes, isLoading: classesLoading } = useQuery<Class[]>({
     queryKey: ['/api/teacher/classes'],
     queryFn: getQueryFn({ on401: 'throw' }),
   });
   
   // Fetch subjects
-  const { data: subjects, isLoading: subjectsLoading } = useQuery({
+  const { data: subjects, isLoading: subjectsLoading } = useQuery<Subject[]>({
     queryKey: ['/api/subjects'],
     queryFn: getQueryFn({ on401: 'throw' }),
   });
   
   // Fetch groups
-  const { data: groups, isLoading: groupsLoading } = useQuery({
+  const { data: groups, isLoading: groupsLoading } = useQuery<Group[]>({
     queryKey: ['/api/groups'],
     queryFn: getQueryFn({ on401: 'throw' }),
   });
   
   // Fetch all students
-  const { data: users, isLoading: usersLoading } = useQuery({
+  const { data: users, isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ['/api/admin/users'],
     queryFn: getQueryFn({ on401: 'returnNull' }),
   });
@@ -122,7 +122,7 @@ export default function TeacherDashboard() {
   // End class mutation
   const endClassMutation = useMutation({
     mutationFn: async (classId: number) => {
-      const res = await apiRequest('POST', `/api/teacher/classes/${classId}/end`, {});
+      const res = await apiRequest('PUT', `/api/teacher/classes/${classId}/end`, {});
       return res.json();
     },
     onSuccess: () => {
@@ -195,7 +195,7 @@ export default function TeacherDashboard() {
   }, [classes, subjects, groups]);
   
   const handleGenerateQR = (classId: number) => {
-    const selectedClass = classes.find((cls: Class) => cls.id === classId);
+    const selectedClass = classes?.find((cls: Class) => cls.id === classId);
     if (!selectedClass) return;
     
     generateQRMutation.mutate(classId);
@@ -272,7 +272,7 @@ export default function TeacherDashboard() {
     const totalStudents = studentsInGroup.length;
     
     // Fetch attendance records for this class
-    const { data: attendanceRecords } = useQuery({
+    const { data: attendanceRecords } = useQuery<AttendanceRecord[]>({
       queryKey: [`/api/teacher/classes/${classId}/attendance`],
       queryFn: getQueryFn({ on401: 'returnNull' }),
       enabled: !!classId,
@@ -382,6 +382,7 @@ export default function TeacherDashboard() {
   };
   
   const subjectAttendance = getAttendanceBySubject();
+  
   
   return (
     <div className="mb-6">
@@ -525,6 +526,9 @@ export default function TeacherDashboard() {
                     <RefreshCw className="mr-1 h-4 w-4" />
                     Обновить QR
                   </Button>
+                </div>
+                <div className="flex justify-center items-center p-4">
+                 <QRCodeCanvas value={activeClassInfo.qrCode} size={200} />
                 </div>
               </div>
             ) : (

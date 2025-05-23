@@ -13,6 +13,7 @@ import { Users, School, Calendar, ClipboardList, Download, Eye, Trash, FileText 
 import { Progress } from '@/components/ui/progress';
 import { useLocation } from 'wouter';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Class, User } from '@shared/schema';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -21,13 +22,13 @@ export default function AdminDashboard() {
   const [, setLocation] = useLocation();
 
   // Fetch all users
-  const { data: users, isLoading: usersLoading } = useQuery({
+  const { data: users, isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ['/api/admin/users'],
     queryFn: getQueryFn({ on401: 'throw' }),
   });
 
   // Fetch all classes
-  const { data: classes, isLoading: classesLoading } = useQuery({
+  const { data: classes, isLoading: classesLoading } = useQuery<Class[]>({
     queryKey: ['/api/admin/classes'],
     queryFn: getQueryFn({ on401: 'throw' }),
   });
@@ -84,7 +85,7 @@ export default function AdminDashboard() {
     }
 
     const students = users.filter((user: any) => user.role === 'student');
-    const teachers = users.filter((user: any) => user.role === 'teacher');
+    const teachers = users?.filter((user: any) => user.role === 'teacher');
 
     // Calculate new users in the last month
     const oneMonthAgo = new Date();
@@ -96,7 +97,7 @@ export default function AdminDashboard() {
 
     // Classes held in the current month
     const currentMonth = new Date().getMonth();
-    const classesThisMonth = classes.filter((cls: any) => {
+    const classesThisMonth = classes?.filter((cls: any) => {
       return new Date(cls.date).getMonth() === currentMonth;
     });
 
@@ -185,6 +186,12 @@ export default function AdminDashboard() {
                 className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none border-b-2 border-transparent px-6 py-4 font-medium text-sm"
               >
                 Группы
+              </TabsTrigger>
+              <TabsTrigger 
+                value="faculties" 
+                className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none border-b-2 border-transparent px-6 py-4 font-medium text-sm"
+              >
+                Факультеты
               </TabsTrigger>
               <TabsTrigger 
                 value="subjects" 
@@ -379,8 +386,25 @@ export default function AdminDashboard() {
                 </div>
                 <h3 className="text-xl font-medium text-gray-700 mb-2">Управление группами</h3>
                 <p className="text-gray-500 mb-4">Здесь вы можете создавать и редактировать группы студентов</p>
-                <Button className="mt-2">
+                <Button className="mt-2"
+                onClick={() => setLocation('/admin/groups')}>
+                  
                   Управление группами
+                </Button>
+              </div>
+            </TabsContent>
+
+                        <TabsContent value="faculties" className="m-0">
+              <div className="text-center py-16">
+                <div className="text-gray-400 text-5xl mb-4">
+                  <Users className="h-16 w-16 mx-auto opacity-20" />
+                </div>
+                <h3 className="text-xl font-medium text-gray-700 mb-2">Управление факультетами</h3>
+                <p className="text-gray-500 mb-4">Здесь вы можете создавать и редактировать факультеты</p>
+                <Button className="mt-2"
+                onClick={() => setLocation('/admin/faculties')}>
+                  
+                  Управление факультетами
                 </Button>
               </div>
             </TabsContent>
@@ -392,7 +416,8 @@ export default function AdminDashboard() {
                 </div>
                 <h3 className="text-xl font-medium text-gray-700 mb-2">Управление предметами</h3>
                 <p className="text-gray-500 mb-4">Здесь вы можете добавлять и редактировать учебные предметы</p>
-                <Button className="mt-2">
+                <Button className="mt-2"
+                onClick={() => setLocation('/admin/subjects')}>
                   Управление предметами
                 </Button>
               </div>

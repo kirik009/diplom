@@ -56,7 +56,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Создаем пользователя с ролью "student" по умолчанию
       const { username, password1, firstName, lastName, middleName, groupId } = req.body;
-      const pas = await bcrypt.hash(password1, 10);
       // Проверяем, существует ли пользователь с таким именем
       const existingUser = await storage.getUserByUsername(username);
       if (existingUser) {
@@ -66,7 +65,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Создаем нового пользователя
       const [newUser] = await storage.createUser({
         username,
-        password:pas,
+        password:password1,
         role: "student", // По умолчанию все новые пользователи - студенты
         firstName,
         lastName,
@@ -90,10 +89,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("Login attempt received for:", req.body.username);
       const credentials = loginSchema.parse(req.body);
-      
-      
-        
-       
       
       // Обычный путь через базу данных
       const user = await storage.getUserByUsername(credentials.username);
@@ -146,7 +141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/auth/me", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const user = await storage.getUser(req.session.userId!);
+      const user = await storage.getUserById(req.session.userId!);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -220,7 +215,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...req.body,
           teacherId: req.session.userId!,
           qrCode: null,
-          isActive: false,
+          isActive: true,
         };
         
         const classItem = await storage.createClass(newClass);
@@ -266,7 +261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
   
   // End active class
-  app.post(
+  app.put(
     "/api/teacher/classes/:id/end",
     isAuthenticated,
     hasRole(["teacher", "admin"]),
@@ -279,7 +274,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: "Class not found" });
         }
 
-        // Check if the teacher is authorized for this class
         if (
           classItem.teacherId !== req.session.userId &&
           req.session.role !== "admin"
@@ -386,7 +380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     hasRole(["student"]),
     async (req: Request, res: Response) => {
       try {
-        const student = await storage.getUser(req.session.userId!);
+        const student = await storage.getUserById(req.session.userId!);
         if (!student || !student.groupId) {
           return res.status(404).json({ message: "Student or group not found" });
         }
@@ -409,52 +403,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const users = await storage.getAllUsers();
         // Remove passwords from the response
-        const sanitizedUsers = users.map(user => {
+        const sanitizedUsers = users?.map(user => {
           const { password, ...userWithoutPassword } = user;
           return userWithoutPassword;
         });
         res.json(sanitizedUsers);
       } catch (err) {
         res.status(500).json({ message: "Internal server error" });
-      }
-    }
-  );
-  
-  // Create new user (admin only)
-  app.post(
-    "/api/admin/users",
-    isAuthenticated,
-    hasRole(["admin"]),
-    async (req: Request, res: Response) => {
-      try {
-        const { username, password, role, firstName, lastName, middleName, groupId, departmentId } = req.body;
-        
-        // Проверяем, существует ли пользователь с таким именем
-        const existingUser = await storage.getUserByUsername(username);
-        if (existingUser) {
-          return res.status(400).json({ message: "Пользователь с таким именем уже существует" });
-        }
-        
-        // Создаем нового пользователя
-        const newUser = await storage.createUser({
-          username,
-          password,
-          role,
-          firstName,
-          lastName,
-          middleName: middleName || null,
-          groupId: groupId || null,
-          departmentId: departmentId || null
-        });
-        
-        // Удаляем пароль из ответа
-        const { password: _, ...userWithoutPassword } = newUser;
-        
-        console.log(`Создан новый пользователь администратором: ${username}, роль: ${role}`);
-        res.status(201).json(userWithoutPassword);
-      } catch (err) {
-        console.error('Ошибка регистрации пользователя:', err);
-        res.status(500).json({ message: "Ошибка сервера при регистрации пользователя" });
       }
     }
   );
@@ -469,7 +424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const userId = parseInt(req.params.id);
         
         // Получаем пользователя
-        const user = await storage.getUser(userId);
+        const user = await storage.getUserById(userId);
         if (!user) {
           return res.status(404).json({ message: "Пользователь не найден" });
         }
@@ -543,7 +498,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const userId = parseInt(req.params.id);
         
         // Проверяем, существует ли пользователь
-        const user = await storage.getUser(userId);
+        const user = await storage.getUserById(userId);
         if (!user) {
           return res.status(404).json({ message: "Пользователь не найден" });
         }
@@ -623,7 +578,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Internal server error" });
     }
   });
+
+    // Get all departments
+  app.get("/api/admin/departments", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const departments = await storage.getAllDepartments();
+      res.json(departments);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
   
+    // Get all faculties
+  app.get("/api/admin/faculties", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const faculties = await storage.getAllFaculties();
+      res.json(faculties);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Gamification routes
   app.get("/api/student/progress", async (req: Request, res: Response) => {
     try {
@@ -699,6 +674,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(achievements);
     } catch (err) {
       res.status(500).json({ message: "Failed to fetch achievements" });
+    }
+  });
+
+  app.post("/api/admin/groups", async (req: Request, res: Response) => {
+    try {
+      const { name, facultyId } = req.body; // Используем деструктуризацию
+
+      const [newGroup] = await storage.createGroup({
+        name,
+        facultyId
+      });
+      
+      res.status(201).json(newGroup);
+    } catch (err) {
+      console.error('Ошибка регистрации:', err);
+      res.status(500).json({ message: "Ошибка сервера при регистрации" });
+    }
+  });
+
+  app.post("/api/admin/departments", async (req: Request, res: Response) => {
+    try {
+      const { name, facultyId } = req.body; // Используем деструктуризацию
+
+      const [newGroup] = await storage.createDepartment({
+        name,
+        facultyId
+      });
+      
+      res.status(201).json(newGroup);
+    } catch (err) {
+      console.error('Ошибка регистрации:', err);
+      res.status(500).json({ message: "Ошибка сервера при регистрации" });
+    }
+  });
+
+    app.post("/api/admin/faculties", async (req: Request, res: Response) => {
+    try {
+      const { name} = req.body;
+      const [newGroup] = await storage.createFaculty({
+        name
+      });
+      
+      res.status(201).json(newGroup);
+    } catch (err) {
+      console.error('Ошибка создания факультета:', err);
+      res.status(500).json({ message: "Ошибка сервера при создании факультета" });
+    }
+  });
+
+   app.post("/api/admin/subjects", async (req: Request, res: Response) => {
+    try {
+      const { name} = req.body;
+      const [newGroup] = await storage.createSubject({
+        name
+      });
+      
+      res.status(201).json(newGroup);
+    } catch (err) {
+      console.error('Ошибка создания предмета:', err);
+      res.status(500).json({ message: "Ошибка сервера при создании предмета" });
     }
   });
   
@@ -803,6 +838,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Internal server error" });
     }
   });
+
+  app.delete(
+    "/api/admin/groups/:id",
+    isAuthenticated,
+    hasRole(["admin"]),
+    async (req: Request, res: Response) => {
+      try {
+        const userId = parseInt(req.params.id);
+        
+    
+        await storage.deleteGroup(userId);
+        
+        res.status(200).json({ message: "Пользователь успешно удален" });
+      } catch (err) {
+        console.error('Ошибка удаления пользователя:', err);
+        res.status(500).json({ message: "Ошибка сервера при удалении пользователя" });
+      }
+    }
+  );
+
+  app.delete(
+    "/api/admin/departments/:id",
+    isAuthenticated,
+    hasRole(["admin"]),
+    async (req: Request, res: Response) => {
+      try {
+        const userId = parseInt(req.params.id);
+        
+        await storage.deleteDepartment(userId);
+        
+        res.status(200).json({ message: "Кафедра успешно удалена" });
+      } catch (err) {
+        console.error('Ошибка удаления кафедры:', err);
+        res.status(500).json({ message: "Ошибка сервера при удалении кафедры" });
+      }
+    }
+  );
+
+  app.delete(
+    "/api/admin/faculties/:id",
+    isAuthenticated,
+    hasRole(["admin"]),
+    async (req: Request, res: Response) => {
+      try {
+        const userId = parseInt(req.params.id);
+        
+        await storage.deleteFaculty(userId);
+        
+        res.status(200).json({ message: "Пользователь успешно удален" });
+      } catch (err) {
+        console.error('Ошибка удаления факультета:', err);
+        res.status(500).json({ message: "Ошибка сервера при удалении факультета" });
+      }
+    }
+  );
+
+
+  app.delete(
+    "/api/admin/subjects/:id",
+    isAuthenticated,
+    hasRole(["admin"]),
+    async (req: Request, res: Response) => {
+      try {
+        const userId = parseInt(req.params.id);
+        
+        await storage.deleteSubject(userId);
+        
+        res.status(200).json({ message: "Предмет успешно удален" });
+      } catch (err) {
+        console.error('Ошибка удаления предмета:', err);
+        res.status(500).json({ message: "Ошибка сервера при удалении предмета" });
+      }
+    }
+  );
 
   const httpServer = createServer(app);
   return httpServer;

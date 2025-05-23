@@ -19,57 +19,45 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Group, User } from '@shared/schema';
+import { Faculty, Group, User } from '@shared/schema';
 
-export default function AdminUsersManagement() {
+export default function AdminFacultyManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [facultyToCreate, setFacultyToCreate] = useState<Partial<Faculty> | null>(null);
   const [userToDelete, setUserToDelete] = useState<number | null>(null);
 
-  // Получаем список всех пользователей
-  const { data: users, isLoading, refetch } = useQuery<User[]>({
-    queryKey: ['/api/admin/users'],
-    queryFn: getQueryFn({ on401: 'throw' }),
-  });
-
-  // Получаем список групп для фильтрации
-  const { data: groups, isLoading: groupsLoading, error : groupsError} = useQuery<Group[]>({
-    queryKey: ['/api/groups'],
+   const { data: faculities, isLoading: faculitiesLoading, error : faculitiesError} = useQuery<Faculty[]>({
+    queryKey: ['/api/admin/faculties'],
     queryFn: getQueryFn({ on401: 'returnNull' }),
   });
-
   // Фильтрация пользователей
-  const filteredUsers = users?.filter((user: any) => {
+  const filteredUsers = faculities?.filter((group)=> {
     const matchesSearch = 
-      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.lastName.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-    
-    return matchesSearch && matchesRole;
+        group.name.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch;
   });
 
   // Удаление пользователя
   const handleDeleteUser = async (userId: number) => {
     try {
-      await apiRequest('DELETE', `/api/admin/users/${userId}`, {});
+      await apiRequest('DELETE', `/api/admin/faculties/${userId}`, {});
       toast({
-        title: 'Пользователь удален',
-        description: 'Пользователь был успешно удален из системы.',
+        title: 'Факультет удалена',
+        description: 'Факультет был успешно удален из системы.',
       });
       
       // Обновляем список пользователей
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/faculties'] });
     } catch (error) {
-      console.error('Ошибка при удалении пользователя:', error);
+      console.error('Ошибка при удалении факультета:', error);
       toast({
         title: 'Ошибка',
-        description: 'Не удалось удалить пользователя.',
+        description: 'Не удалось удалить факультет.',
         variant: 'destructive',
       });
     } finally {
@@ -78,25 +66,28 @@ export default function AdminUsersManagement() {
     }
   };
 
-  // Получение названия группы по ID
-  const getGroupName = (groupId: number | null) => {
-    if (!groupId) return '—';
-    const group = groups?.find((g: any) => g.id === groupId);
-    return group ? group.name : '—';
-  };
 
-  // Преобразование роли в читаемый формат
-  const getRoleBadge = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return <Badge className="bg-red-500">Администратор</Badge>;
-      case 'teacher':
-        return <Badge className="bg-blue-500">Преподаватель</Badge>;
-      case 'student':
-        return <Badge className="bg-green-500">Студент</Badge>;
-      default:
-        return <Badge>{role}</Badge>;
+const handleCreateGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log("submit", facultyToCreate);
+     if (facultyToCreate) {
+    try {
+      await apiRequest('POST', '/api/admin/faculties', facultyToCreate);
+      toast({
+        title: 'Факультет создан',  
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/faculties'] });
+    } catch (error) {
+      console.error('Ошибка при создании факультета:', error);
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось создать факультет.',
+        variant: 'destructive',
+      });
+    } finally {
+      setFacultyToCreate(null);
     }
+}
   };
 
   return (
@@ -106,12 +97,8 @@ export default function AdminUsersManagement() {
           <Button variant="outline" size="icon" onClick={() => setLocation('/admin')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h2 className="text-2xl font-bold">Управление пользователями</h2>
+          <h2 className="text-2xl font-bold">Управление факультетами</h2>
         </div>
-        <Button onClick={() => setLocation('/admin/register-user')}>
-          <Plus className="mr-2 h-4 w-4" />
-          Добавить пользователя
-        </Button>
       </div>
 
       <Card className="mb-6">
@@ -119,24 +106,11 @@ export default function AdminUsersManagement() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div className="col-span-2">
               <Input
-                placeholder="Поиск пользователей..."
+                placeholder="Поиск..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full"
               />
-            </div>
-            <div>
-              <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Фильтр по роли" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Все роли</SelectItem>
-                  <SelectItem value="admin">Администраторы</SelectItem>
-                  <SelectItem value="teacher">Преподаватели</SelectItem>
-                  <SelectItem value="student">Студенты</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
         </CardContent>
@@ -144,14 +118,14 @@ export default function AdminUsersManagement() {
 
       <Card>
         <CardContent className="p-0">
-          {isLoading ? (
+          {(faculitiesLoading) ? (
             <div className="flex justify-center items-center p-8">
-              <p>Загрузка пользователей...</p>
+              <p>Загрузка факультетов...</p>
             </div>
           ) : filteredUsers?.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-8">
               <Users className="h-12 w-12 text-gray-300 mb-2" />
-              <p className="text-gray-500">Пользователи не найдены</p>
+              <p className="text-gray-500">Факультеты не найдены</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -159,25 +133,15 @@ export default function AdminUsersManagement() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>ID</TableHead>
-                    <TableHead>Имя пользователя</TableHead>
-                    <TableHead>ФИО</TableHead>
-                    <TableHead>Роль</TableHead>
-                    <TableHead>Группа/Кафедра</TableHead>
+                    <TableHead>Факультет</TableHead>
                     <TableHead className="text-right">Действия</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsers?.map((user: any) => (
+                  {filteredUsers?.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.id}</TableCell>
-                      <TableCell>{user.username}</TableCell>
-                      <TableCell>
-                        {user.lastName} {user.firstName} {user.middleName || ''}
-                      </TableCell>
-                      <TableCell>{getRoleBadge(user.role)}</TableCell>
-                      <TableCell>
-                        {user.role === 'student' ? getGroupName(user.groupId) : user.role === 'teacher' ? 'Кафедра' : '—'}
-                      </TableCell>
+                      <TableCell>{user.name}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button variant="ghost" size="icon" className="h-8 w-8" 
@@ -208,7 +172,7 @@ export default function AdminUsersManagement() {
           <DialogHeader>
             <DialogTitle>Подтверждение удаления</DialogTitle>
             <DialogDescription>
-              Вы уверены, что хотите удалить этого пользователя? Это действие нельзя отменить.
+              Вы уверены, что хотите удалить этот факультет? Это действие нельзя отменить.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -221,6 +185,49 @@ export default function AdminUsersManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+
+           <Dialog open={!!facultyToCreate} onOpenChange={(open) => !open && setFacultyToCreate(null)}>
+                <Button onClick={() => setFacultyToCreate({ name: "" })}>
+                Добавить Факультет
+              </Button>
+              
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Создание нового факультета</DialogTitle>
+                  
+                </DialogHeader>
+                {
+                  facultyToCreate && 
+                  <form onSubmit={handleCreateGroup} className="space-y-4 py-4">
+      <div className="grid grid-cols-1 gap-4">
+        <div className="space-y-2">
+          <label htmlFor="create-name" className="text-sm font-medium">
+            Название
+          </label>
+          <Input
+            id="create-name"
+            value={facultyToCreate?.name}
+            onChange={(e) =>
+                        setFacultyToCreate({ ...facultyToCreate, name: e.target.value })
+                      }
+            placeholder="Введите название факультета"
+          />
+        </div>
+     
+      </div>
+
+      <button
+        type="submit"
+        className="mt-4 bg-primary text-white px-4 py-2 rounded hover:bg-primary/90"
+      >
+        Создать факультет
+      </button>
+    </form>
+  }
+               
+              </DialogContent>
+            </Dialog>
     </div>
   );
 }

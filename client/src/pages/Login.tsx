@@ -140,7 +140,7 @@ export default function Login() {
             </form>
           </Form>
 
-          <div className="mt-6">
+          {/* <div className="mt-6">
             <p className="text-sm text-muted-foreground text-center">
               Демонстрационные аккаунты:
             </p>
@@ -158,7 +158,7 @@ export default function Login() {
                 <div className="text-muted-foreground">admin<br/>admin</div>
               </div>
             </div>
-          </div>
+          </div> */}
         </CardContent>
       </Card>
     </div>

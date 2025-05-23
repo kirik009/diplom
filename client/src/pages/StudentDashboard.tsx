@@ -10,6 +10,7 @@ import QRScannerModal from '@/components/QRScannerModal';
 import GamificationCard from '@/components/GamificationCard';
 import { User } from '@/contexts/AuthContext';
 import { getQueryFn } from '@/lib/queryClient';
+import { Class } from '@shared/schema';
 
 interface AttendanceRecord {
   id: number;
@@ -51,25 +52,25 @@ export default function StudentDashboard() {
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
   
   // Fetch attendance records
-  const { data: attendanceRecords, isLoading: attendanceLoading } = useQuery({
+  const { data: attendanceRecords, isLoading: attendanceLoading } = useQuery<AttendanceRecord[]>({
     queryKey: ['/api/student/attendance'],
     queryFn: getQueryFn({ on401: 'throw' }),
   });
   
   // Fetch classes
-  const { data: classes, isLoading: classesLoading } = useQuery({
+  const { data: classes, isLoading: classesLoading } = useQuery<Class[]>({
     queryKey: ['/api/student/classes'],
     queryFn: getQueryFn({ on401: 'throw' }),
   });
   
   // Fetch subjects
-  const { data: subjects, isLoading: subjectsLoading } = useQuery({
+  const { data: subjects, isLoading: subjectsLoading } = useQuery<Subject[]>({
     queryKey: ['/api/subjects'],
     queryFn: getQueryFn({ on401: 'throw' }),
   });
   
   // Fetch teachers
-  const { data: teachers, isLoading: teachersLoading } = useQuery({
+  const { data: teachers, isLoading: teachersLoading } = useQuery<User[]>({
     queryKey: ['/api/admin/users'],
     queryFn: getQueryFn({ on401: 'returnNull' }),
   });
@@ -242,7 +243,7 @@ export default function StudentDashboard() {
   const todaySchedule = getTodaySchedule();
   
   const handleQRScanSuccess = () => {
-    // Invalidate queries to refresh data
+    console.log('QR code scanned successfully');
     queryClient.invalidateQueries({ queryKey: ['/api/student/attendance'] });
   };
   
@@ -427,7 +428,9 @@ export default function StudentDashboard() {
       {/* QR Scanner Modal */}
       <QRScannerModal 
         isOpen={isQRScannerOpen} 
-        onClose={() => setIsQRScannerOpen(false)}
+        onClose={() => {
+          console.log('QR Scanner closed');
+          setIsQRScannerOpen(false)}}
         onSuccess={handleQRScanSuccess}
       />
     </div>
