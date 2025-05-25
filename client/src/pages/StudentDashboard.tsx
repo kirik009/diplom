@@ -243,7 +243,6 @@ export default function StudentDashboard() {
   const todaySchedule = getTodaySchedule();
   
   const handleQRScanSuccess = () => {
-    console.log('QR code scanned successfully');
     queryClient.invalidateQueries({ queryKey: ['/api/student/attendance'] });
   };
   
@@ -428,9 +427,7 @@ export default function StudentDashboard() {
       {/* QR Scanner Modal */}
       <QRScannerModal 
         isOpen={isQRScannerOpen} 
-        onClose={() => {
-          console.log('QR Scanner closed');
-          setIsQRScannerOpen(false)}}
+        onClose={() => {setIsQRScannerOpen(false)}}
         onSuccess={handleQRScanSuccess}
       />
     </div>

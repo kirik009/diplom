@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { apiRequest, getQueryFn } from '@/lib/queryClient';
 import { formatDateTime, getTimeRemaining, calculateAttendancePercentage } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { QrCode, Users, X, RefreshCw, BarChart, Eye, Download } from 'lucide-react';
+import { QrCode, Users, X, BarChart, Eye, Download} from 'lucide-react';
 import QRCodeModal from '@/components/QRCodeModal';
 import { Progress } from '@/components/ui/progress';
 import  { QRCodeCanvas } from 'qrcode.react';
@@ -55,7 +54,6 @@ interface User {
 }
 
 export default function TeacherDashboard() {
-  const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isQRModalOpen, setQRModalOpen] = useState(false);
@@ -94,31 +92,12 @@ export default function TeacherDashboard() {
     queryKey: ['/api/admin/users'],
     queryFn: getQueryFn({ on401: 'returnNull' }),
   });
-  
-  // Generate QR code mutation
-  const generateQRMutation = useMutation({
-    mutationFn: async (classId: number) => {
-      const res = await apiRequest('POST', `/api/teacher/classes/${classId}/qr`, {});
-      return res.json();
-    },
-    onSuccess: (data) => {
-      setQrCodeValue(data.qrCode);
-      setQRModalOpen(true);
-      queryClient.invalidateQueries({ queryKey: ['/api/teacher/classes'] });
-      toast({
-        title: 'QR код создан',
-        description: 'QR код для занятия успешно создан.',
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Ошибка',
-        description: error.message || 'Не удалось создать QR код',
-        variant: 'destructive',
-      });
-    },
-  });
-  
+
+      const { data: attendanceRecords } = useQuery<AttendanceRecord[]>({
+      queryKey: [`/api/teacher/classes/${activeClassId}/attendance`],
+      queryFn: getQueryFn({ on401: 'returnNull' }),
+      enabled: !!activeClassId,
+    });
   // End class mutation
   const endClassMutation = useMutation({
     mutationFn: async (classId: number) => {
@@ -179,6 +158,7 @@ export default function TeacherDashboard() {
           
           if (subject && group) {
             setActiveClassInfo({
+              groupId: activeClass.groupId,
               subject: subject.name,
               group: group.name,
               classroom: activeClass.classroom,
@@ -194,30 +174,6 @@ export default function TeacherDashboard() {
     }
   }, [classes, subjects, groups]);
   
-  const handleGenerateQR = (classId: number) => {
-    const selectedClass = classes?.find((cls: Class) => cls.id === classId);
-    if (!selectedClass) return;
-    
-    generateQRMutation.mutate(classId);
-    
-    // Find the subject and group info for the QR modal
-    if (subjects && groups) {
-      const subject = subjects.find((s: Subject) => s.id === selectedClass.subjectId);
-      const group = groups.find((g: Group) => g.id === selectedClass.groupId);
-      
-      if (subject && group) {
-        setActiveClassInfo({
-          subject: subject.name,
-          group: group.name,
-          classroom: selectedClass.classroom,
-          date: selectedClass.date,
-          startTime: selectedClass.startTime,
-          endTime: selectedClass.endTime,
-        });
-        setActiveClassId(classId);
-      }
-    }
-  };
   
   const handleCreateClass = () => {
     const now = new Date();
@@ -251,14 +207,11 @@ export default function TeacherDashboard() {
     }
   };
   
-  const refreshQR = () => {
-    if (activeClassId) {
-      generateQRMutation.mutate(activeClassId);
-    }
-  };
+  
   
   // Calculate class attendance
   const getClassAttendance = (classId: number) => {
+  
     if (!users || !classes) return { present: 0, total: 0, percentage: 0 };
     
     const classItem = classes.find((cls: Class) => cls.id === classId);
@@ -272,11 +225,7 @@ export default function TeacherDashboard() {
     const totalStudents = studentsInGroup.length;
     
     // Fetch attendance records for this class
-    const { data: attendanceRecords } = useQuery<AttendanceRecord[]>({
-      queryKey: [`/api/teacher/classes/${classId}/attendance`],
-      queryFn: getQueryFn({ on401: 'returnNull' }),
-      enabled: !!classId,
-    });
+
     
     const presentStudents = attendanceRecords ? attendanceRecords.length : 0;
     
@@ -330,9 +279,9 @@ export default function TeacherDashboard() {
         const subject = subjects.find((s: Subject) => s.id === cls.subjectId);
         const group = groups.find((g: Group) => g.id === cls.groupId);
         
-        // Calculate attendance (mock data for now)
-        const attendanceStats = getClassAttendance(cls.id);
         
+        const attendanceStats = getClassAttendance(cls.id);
+       
         return {
           id: cls.id,
           date: formatDateTime(cls.date),
@@ -343,9 +292,11 @@ export default function TeacherDashboard() {
       });
   };
   
-  const isLoading = classesLoading || subjectsLoading || groupsLoading || usersLoading;
+  const isLoading = classesLoading || subjectsLoading || groupsLoading || usersLoading ;
   const classesAttendanceStats = getClassesAttendanceStats();
-  const recentClasses = getRecentClasses();
+  
+  const attendanceStats = getClassAttendance(Number(activeClassId));
+   const recentClasses = getRecentClasses();
   
   // Get attendance stats for each subject-group combination
   const getAttendanceBySubject = () => {
@@ -510,10 +461,11 @@ export default function TeacherDashboard() {
                 <div className="mb-4">
                   <div className="flex justify-between mb-2">
                     <div className="text-sm font-medium">Посещаемость:</div>
-                    <div className="text-sm font-medium">
-                      {/* This is mocked for display purposes */}
-                      18/25 студентов
-                    </div>
+                   <div className="text-sm font-medium">
+  {attendanceStats
+    ? `${attendanceStats.present}/${attendanceStats.total} студентов`
+    : 'Загрузка статистики...'}
+</div>
                   </div>
                   <Progress value={72} className="h-2" />
                 </div>
@@ -521,10 +473,6 @@ export default function TeacherDashboard() {
                   <Button variant="destructive" className="flex-1" onClick={handleEndClass}>
                     <X className="mr-1 h-4 w-4" />
                     Завершить
-                  </Button>
-                  <Button variant="outline" className="flex-1" onClick={refreshQR}>
-                    <RefreshCw className="mr-1 h-4 w-4" />
-                    Обновить QR
                   </Button>
                 </div>
                 <div className="flex justify-center items-center p-4">
@@ -560,7 +508,6 @@ export default function TeacherDashboard() {
                 </div>
               </div>
             </div>
-            <div>
               <div className="bg-gray-50 p-4 rounded-lg mb-4">
                 <h4 className="font-medium text-gray-700 mb-3">Средняя посещаемость</h4>
                 <div className="space-y-3">
@@ -591,31 +538,7 @@ export default function TeacherDashboard() {
                   )}
                 </div>
               </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium text-gray-700 mb-3">Проблемные студенты</h4>
-                <div className="space-y-2">
-                  {/* This would be actual data in a real application */}
-                  <div className="flex justify-between items-center p-2 bg-white rounded">
-                    <div>
-                      <div className="font-medium">Сидоров И.П.</div>
-                      <div className="text-xs text-gray-500">Группа 101, 45%</div>
-                    </div>
-                    <Button variant="ghost" size="icon" className="text-primary">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-mail"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                    </Button>
-                  </div>
-                  <div className="flex justify-between items-center p-2 bg-white rounded">
-                    <div>
-                      <div className="font-medium">Петрова А.С.</div>
-                      <div className="text-xs text-gray-500">Группа 102, 52%</div>
-                    </div>
-                    <Button variant="ghost" size="icon" className="text-primary">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-mail"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
+       
           </div>
         </CardContent>
       </Card>

@@ -1,7 +1,7 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from '../shared/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
@@ -239,5 +239,41 @@ export const storage = {
             console.error("Error ending class:", error);
             return undefined;
           }
+  },
+    
+  async getActiveClassByQrCode(qrCode: string) {
+    try {
+      const [classes] = await db.select().from(schema.classes).where(and(eq(schema.classes.qrCode, qrCode),
+        eq(schema.classes.isActive, true)));
+      return classes;
+    } catch (error) {
+      console.error("Error getting classes by this qr code:", error);
+      return null;
+    }
+  },
+
+    async getAttendanceRecordsByClass(classId: number) {
+    try {
+      const classes = await db.select().from(schema.attendanceRecords).where(eq(schema.attendanceRecords.classId, classId));
+      return classes;
+    } catch (error) {
+      console.error("Error getting classes by this qr code:", error);
+      return null;
+    }
+  },
+
+      async createAttendanceRecord(groupData: schema.InsertAttendanceRecord) {
+    
+    return await db.insert(schema.attendanceRecords).values(groupData).returning();
+  },
+
+      async getStudentsByGroupId(groupId: number) {
+    try {
+      const classes = await db.select().from(schema.users).where(eq(schema.users.groupId, groupId));
+      return classes;
+    } catch (error) {
+      console.error("Error getting classes by this qr code:", error);
+      return null;
+    }
   },
 };

@@ -325,22 +325,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Find the class with this QR code
-        const classes = await storage.getAllClasses();
-        const classItem = classes.find(c => c.qrCode === qrCode && c.isActive);
-        
+        const classItem = await storage.getActiveClassByQrCode(qrCode);
+     
         if (!classItem) {
           return res.status(404).json({ message: "Invalid or expired QR code" });
         }
         
         // Check if the student belongs to the class's group
-        const student = await storage.getUser(req.session.userId!);
+        const student = await storage.getUserById(req.session.userId!);
         if (!student || student.groupId !== classItem.groupId) {
           return res.status(403).json({ message: "You are not enrolled in this class" });
         }
         
         // Check if attendance already recorded
         const existingRecords = await storage.getAttendanceRecordsByClass(classItem.id);
-        const alreadyRecorded = existingRecords.some(r => r.studentId === req.session.userId);
+        const alreadyRecorded = existingRecords?.some(r => r.studentId === req.session.userId);
         
         if (alreadyRecorded) {
           return res.status(400).json({ message: "Attendance already recorded" });
@@ -398,7 +397,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get(
     "/api/admin/users",
     isAuthenticated,
-    hasRole(["admin"]),
+    hasRole(["teacher", "admin"]),
     async (req: Request, res: Response) => {
       try {
         const users = await storage.getAllUsers();
