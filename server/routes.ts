@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { loginSchema, insertAttendanceRecordSchema } from "@shared/schema";
+import { loginSchema, insertAttendanceRecordSchema, departments } from "@shared/schema";
 import { z } from "zod";
 import * as crypto from "crypto";
 import session from "express-session";
@@ -55,7 +55,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
       // Создаем пользователя с ролью "student" по умолчанию
-      const { username, password1, firstName, lastName, middleName, groupId } = req.body;
+      const { username, password1,role, firstName, lastName, middleName, groupId, departmentId } = req.body;
       // Проверяем, существует ли пользователь с таким именем
       const existingUser = await storage.getUserByUsername(username);
       if (existingUser) {
@@ -66,12 +66,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [newUser] = await storage.createUser({
         username,
         password:password1,
-        role: "student", // По умолчанию все новые пользователи - студенты
+        role: role, // По умолчанию все новые пользователи - студенты
         firstName,
         lastName,
         middleName: middleName || null,
         groupId: groupId || null,
-        departmentId: null
+        departmentId: departmentId || null,
       });
       
       // Удаляем пароль из ответа
@@ -260,6 +260,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
   
+  //  app.get(
+  //   "/api/teacher/classes/attendance",
+  //   isAuthenticated,
+  //   hasRole(["teacher", "admin"]),
+  //   async (req: Request, res: Response) => {
+  //     try {
+  //       const classId = parseInt(req.params.id);
+  //       const classItem = await storage.getClass(classId);
+
+  //       if (!classItem) {
+  //         return res.status(404).json({ message: "Class not found" });
+  //       }
+
+  //       // Check if the teacher is authorized for this class
+  //       if (
+  //         classItem.teacherId !== req.session.userId &&
+  //         req.session.role !== "admin"
+  //       ) {
+  //         return res.status(403).json({ message: "Unauthorized" });
+  //       }
+
+  //       const attendanceRecords = await storage.getAttendanceRecordsByClass(classId, Number(req.session.userId));
+  //       res.json(attendanceRecords);
+  //     } catch (err) {
+  //       res.status(500).json({ message: "Internal server error" });
+  //     }
+  //   }
+  // );
+
   // End active class
   app.put(
     "/api/teacher/classes/:id/end",
@@ -579,7 +608,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
     // Get all departments
-  app.get("/api/admin/departments", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/departments", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const departments = await storage.getAllDepartments();
       res.json(departments);

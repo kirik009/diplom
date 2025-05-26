@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation, useQueries } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { QrCode, Users, X, BarChart, Eye, Download} from 'lucide-react';
 import QRCodeModal from '@/components/QRCodeModal';
 import { Progress } from '@/components/ui/progress';
 import  { QRCodeCanvas } from 'qrcode.react';
+import { Link } from 'wouter';
 interface Class {
   id: number;
   subjectId: number;
@@ -93,11 +94,23 @@ export default function TeacherDashboard() {
     queryFn: getQueryFn({ on401: 'returnNull' }),
   });
 
-      const { data: attendanceRecords } = useQuery<AttendanceRecord[]>({
+  const { data: activeAttendanceRecords } = useQuery<AttendanceRecord[]>({
       queryKey: [`/api/teacher/classes/${activeClassId}/attendance`],
       queryFn: getQueryFn({ on401: 'returnNull' }),
-      enabled: !!activeClassId,
     });
+
+const queries =  classes?.sort((a: Class, b: Class) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 3)
+      .map((classItem) => ({
+    queryKey: [`/api/teacher/classes/${classItem.id}/attendance`],
+    queryFn: async (): Promise<AttendanceRecord[]> => {
+      const res = await fetch(`/api/teacher/classes/${classItem.id}/attendance`);
+      if (!res.ok) throw new Error("Failed to fetch class attendance ");
+      return res.json();
+    },
+  })) || [];
+  const results = useQueries({queries})
+
   // End class mutation
   const endClassMutation = useMutation({
     mutationFn: async (classId: number) => {
@@ -210,7 +223,29 @@ export default function TeacherDashboard() {
   
   
   // Calculate class attendance
-  const getClassAttendance = (classId: number) => {
+  const getClassAttendance = (classId: number, index: number) => {
+  
+    if (!users || !classes) return { present: 0, total: 0, percentage: 0 };
+    
+    const classItem = classes.find((cls: Class) => cls.id === classId);
+    if (!classItem) return { present: 0, total: 0, percentage: 0 };
+    
+    // Get all students in this group
+    const studentsInGroup = users.filter((user: User) => 
+      user.role === 'student' && user.groupId === classItem.groupId
+    );
+    
+    const totalStudents = studentsInGroup.length;
+    if (results[index].data === undefined) return null
+    const presentStudents = results ? results[index].data.length : 0;
+    
+    return {
+      present: presentStudents,
+      total: totalStudents,
+      percentage: calculateAttendancePercentage(presentStudents, totalStudents)
+    };
+  };
+   const getActiveClassAttendance = (classId: number) => {
   
     if (!users || !classes) return { present: 0, total: 0, percentage: 0 };
     
@@ -224,10 +259,7 @@ export default function TeacherDashboard() {
     
     const totalStudents = studentsInGroup.length;
     
-    // Fetch attendance records for this class
-
-    
-    const presentStudents = attendanceRecords ? attendanceRecords.length : 0;
+    const presentStudents = activeAttendanceRecords ? activeAttendanceRecords.length : 0;
     
     return {
       present: presentStudents,
@@ -275,12 +307,12 @@ export default function TeacherDashboard() {
     return [...classes]
       .sort((a: Class, b: Class) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 3)
-      .map((cls: Class) => {
+      .map((cls: Class, index: number) => {
         const subject = subjects.find((s: Subject) => s.id === cls.subjectId);
         const group = groups.find((g: Group) => g.id === cls.groupId);
         
         
-        const attendanceStats = getClassAttendance(cls.id);
+        const attendanceStats = getClassAttendance(cls.id, index);
        
         return {
           id: cls.id,
@@ -295,9 +327,9 @@ export default function TeacherDashboard() {
   const isLoading = classesLoading || subjectsLoading || groupsLoading || usersLoading ;
   const classesAttendanceStats = getClassesAttendanceStats();
   
-  const attendanceStats = getClassAttendance(Number(activeClassId));
+  const attendanceStats = getActiveClassAttendance(Number(activeClassId));
    const recentClasses = getRecentClasses();
-  
+  console.log(recentClasses)
   // Get attendance stats for each subject-group combination
   const getAttendanceBySubject = () => {
     if (!classes || !subjects || !groups) return [];
@@ -555,7 +587,6 @@ export default function TeacherDashboard() {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Предмет</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Группа</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Посещаемость</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -566,7 +597,10 @@ export default function TeacherDashboard() {
                     </td>
                   </tr>
                 ) : recentClasses.length > 0 ? (
-                  recentClasses.map(classItem => (
+                  recentClasses.map(classItem => 
+                    {if (classItem.attendance !== null)
+                    return (
+                    
                     <tr key={classItem.id}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{classItem.date}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{classItem.subject}</td>
@@ -577,16 +611,10 @@ export default function TeacherDashboard() {
                           <Progress value={classItem.attendance.percentage} className="w-24 h-2" />
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <Button variant="ghost" size="icon" className="text-primary hover:text-primary-dark mr-3">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-700">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </td>
+                  
                     </tr>
-                  ))
+                  )
+})
                 ) : (
                   <tr>
                     <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
@@ -599,7 +627,8 @@ export default function TeacherDashboard() {
           </div>
           <div className="flex justify-center mt-4">
             <Button variant="link" className="text-primary">
-              Показать все
+              <Link href="teacher/classes">Все занятия</Link>
+             
             </Button>
           </div>
         </CardContent>

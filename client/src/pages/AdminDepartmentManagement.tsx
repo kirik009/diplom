@@ -102,12 +102,7 @@ const handleCreateGroup = async (e: React.FormEvent) => {
           <Button variant="outline" size="icon" onClick={() => setLocation('/admin')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h2 className="text-2xl font-bold">Управление пользователями</h2>
         </div>
-        <Button onClick={() => setLocation('/admin/register-user')}>
-          <Plus className="mr-2 h-4 w-4" />
-          Добавить пользователя
-        </Button>
       </div>
 
       <Card className="mb-6">

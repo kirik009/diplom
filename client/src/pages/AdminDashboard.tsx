@@ -68,47 +68,12 @@ export default function AdminDashboard() {
   };
 
   const handleGenerateReport = () => {
+    console.log('Generating report:');
     toast({
       title: 'Отчет сформирован',
       description: 'Отчет успешно сформирован и готов к скачиванию',
     });
   };
-
-  // Calculate summary statistics
-  const getSummaryStats = () => {
-    if (!users || !classes) {
-      return {
-        students: { count: 0, newCount: 0 },
-        teachers: { count: 0, newCount: 0 },
-        classes: { count: 0 }
-      };
-    }
-
-    const students = users.filter((user: any) => user.role === 'student');
-    const teachers = users?.filter((user: any) => user.role === 'teacher');
-
-    // Calculate new users in the last month
-    const oneMonthAgo = new Date();
-    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-
-    // This is mocked since we don't have createdAt fields
-    const newStudents = Math.floor(students.length * 0.1); // Assume 10% are new
-    const newTeachers = Math.floor(teachers.length * 0.05); // Assume 5% are new
-
-    // Classes held in the current month
-    const currentMonth = new Date().getMonth();
-    const classesThisMonth = classes?.filter((cls: any) => {
-      return new Date(cls.date).getMonth() === currentMonth;
-    });
-
-    return {
-      students: { count: students.length, newCount: newStudents },
-      teachers: { count: teachers.length, newCount: newTeachers },
-      classes: { count: classesThisMonth.length }
-    };
-  };
-
-  const summaryStats = getSummaryStats();
 
   // Get faculty attendance stats
   const getFacultyStats = () => {
@@ -129,40 +94,6 @@ export default function AdminDashboard() {
   return (
     <div className="mb-6">
       <h2 className="text-2xl font-medium text-gray-800 mb-4">Панель администратора</h2>
-
-      {/* Summary Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <Card className="card">
-          <CardContent className="p-6">
-            <div className="flex items-center mb-2">
-              <Users className="text-primary text-3xl mr-3 h-8 w-8" />
-              <h3 className="text-xl font-medium text-gray-800">Студенты</h3>
-            </div>
-            <div className="text-3xl font-medium mb-1">{summaryStats.students.count}</div>
-            <div className="text-sm text-gray-500">{summaryStats.students.newCount} новых за последний месяц</div>
-          </CardContent>
-        </Card>
-        <Card className="card">
-          <CardContent className="p-6">
-            <div className="flex items-center mb-2">
-              <School className="text-secondary text-3xl mr-3 h-8 w-8" />
-              <h3 className="text-xl font-medium text-gray-800">Преподаватели</h3>
-            </div>
-            <div className="text-3xl font-medium mb-1">{summaryStats.teachers.count}</div>
-            <div className="text-sm text-gray-500">{summaryStats.teachers.newCount} новых за последний месяц</div>
-          </CardContent>
-        </Card>
-        <Card className="card">
-          <CardContent className="p-6">
-            <div className="flex items-center mb-2">
-              <Calendar className="text-accent text-3xl mr-3 h-8 w-8" />
-              <h3 className="text-xl font-medium text-gray-800">Занятия</h3>
-            </div>
-            <div className="text-3xl font-medium mb-1">{summaryStats.classes.count}</div>
-            <div className="text-sm text-gray-500">Проведено за текущий месяц</div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Admin Tabs */}
       <Card className="mb-8">
@@ -186,6 +117,12 @@ export default function AdminDashboard() {
                 className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none border-b-2 border-transparent px-6 py-4 font-medium text-sm"
               >
                 Группы
+              </TabsTrigger>
+              <TabsTrigger 
+                value="departments" 
+                className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none border-b-2 border-transparent px-6 py-4 font-medium text-sm"
+              >
+                Кафедры
               </TabsTrigger>
               <TabsTrigger 
                 value="faculties" 
@@ -390,6 +327,21 @@ export default function AdminDashboard() {
                 onClick={() => setLocation('/admin/groups')}>
                   
                   Управление группами
+                </Button>
+              </div>
+            </TabsContent>
+
+<TabsContent value="departments" className="m-0">
+              <div className="text-center py-16">
+                <div className="text-gray-400 text-5xl mb-4">
+                  <Users className="h-16 w-16 mx-auto opacity-20" />
+                </div>
+                <h3 className="text-xl font-medium text-gray-700 mb-2">Управление кафедрами</h3>
+                <p className="text-gray-500 mb-4">Здесь вы можете создавать и редактировать кафедры</p>
+                <Button className="mt-2"
+                onClick={() => setLocation('/admin/departments')}>
+                  
+                  Управление кафедрами
                 </Button>
               </div>
             </TabsContent>

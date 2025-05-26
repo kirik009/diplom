@@ -1,7 +1,7 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from '../shared/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
@@ -261,6 +261,8 @@ export const storage = {
       return null;
     }
   },
+
+
 
       async createAttendanceRecord(groupData: schema.InsertAttendanceRecord) {
     

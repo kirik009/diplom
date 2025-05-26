@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Group, User } from '@shared/schema';
+import { Department, Group, User } from '@shared/schema';
 
 export default function AdminUsersManagement() {
   const { toast } = useToast();
@@ -39,6 +39,10 @@ export default function AdminUsersManagement() {
   // Получаем список групп для фильтрации
   const { data: groups, isLoading: groupsLoading, error : groupsError} = useQuery<Group[]>({
     queryKey: ['/api/groups'],
+    queryFn: getQueryFn({ on401: 'returnNull' }),
+  });
+   const { data: departments, isLoading: departmentsLoading, error : departmentsError} = useQuery<Department[]>({
+    queryKey: ['/api/departments'],
     queryFn: getQueryFn({ on401: 'returnNull' }),
   });
 
@@ -82,6 +86,14 @@ export default function AdminUsersManagement() {
   const getGroupName = (groupId: number | null) => {
     if (!groupId) return '—';
     const group = groups?.find((g: any) => g.id === groupId);
+    console.log(group)
+    return group ? group.name : '—';
+  };
+
+   const getDepartmentName = (departmentId: number | null) => {
+    if (!departmentId) return '—';
+    const group = departments?.find((g: any) => g.id === departmentId);
+    console.log(group)
     return group ? group.name : '—';
   };
 
@@ -175,8 +187,9 @@ export default function AdminUsersManagement() {
                         {user.lastName} {user.firstName} {user.middleName || ''}
                       </TableCell>
                       <TableCell>{getRoleBadge(user.role)}</TableCell>
+               
                       <TableCell>
-                        {user.role === 'student' ? getGroupName(user.groupId) : user.role === 'teacher' ? 'Кафедра' : '—'}
+                        {user.role === 'student' ? getGroupName(user.groupId) : user.role === 'teacher' ? getDepartmentName(user.departmentId) : '—'}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
