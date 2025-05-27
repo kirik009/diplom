@@ -5,6 +5,32 @@ import { and, desc, eq } from 'drizzle-orm';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
+import {
+  users,
+  groups,
+  departments,
+  faculties,
+  subjects,
+  classes,
+  attendanceRecords,
+  reports,
+  type InsertUser,
+  type User,
+  type InsertGroup,
+  type Group,
+  type InsertDepartment,
+  type Department,
+  type InsertFaculty,
+  type Faculty,
+  type InsertSubject,
+  type Subject,
+  type InsertClass,
+  type Class,
+  type InsertAttendanceRecord,
+  type AttendanceRecord,
+  type InsertReport,
+  type Report,
+} from "../shared/schema";
 
 
 // Инициализация окружения
@@ -71,6 +97,15 @@ export const storage = {
     }
   },
 
+ async getAllClasses() {
+    try {
+      const users = await db.select().from(schema.classes);
+      return users;
+    } catch (error) {
+      console.error("Error getting all users:", error);
+      return null;
+    }
+  },
 
       async deleteUser(id: number) {
    try {
@@ -86,7 +121,7 @@ export const storage = {
       const groups = await db.select({
         id: schema.groups.id,
         name: schema.groups.name,
-        
+
         facultyName: schema.faculties.name
       }).from(schema.groups).
       leftJoin(schema.faculties, eq(schema.faculties.id, schema.groups.facultyId));
@@ -102,7 +137,7 @@ export const storage = {
       const departments = await db.select({
         id: schema.departments.id,
         name: schema.departments.name,
-        
+
         facultyName: schema.faculties.name
       }).from(schema.departments).
       leftJoin(schema.faculties, eq(schema.faculties.id, schema.departments.facultyId));
@@ -134,7 +169,7 @@ export const storage = {
   },
 
    async createFaculty(facultyData: schema.InsertFaculty) {
-    
+
     return await db.insert(schema.faculties).values(facultyData).returning();
   },
 
@@ -147,7 +182,7 @@ export const storage = {
          }
   },
     async createGroup(groupData: schema.InsertGroup) {
-    
+
     return await db.insert(schema.groups).values(groupData).returning();
   },
 
@@ -162,7 +197,7 @@ export const storage = {
 
 
      async createDepartment(departmentData: schema.InsertDepartment) {
-    
+
     return await db.insert(schema.departments).values(departmentData).returning();
   },
 
@@ -175,7 +210,7 @@ export const storage = {
          }
   },
      async createSubject(subjectData: schema.InsertSubject) {
-    
+
     return await db.insert(schema.subjects).values(subjectData).returning();
   },
 
@@ -233,14 +268,14 @@ export const storage = {
               .set(updatedClass)
               .where(eq(schema.classes.id, id))
               .returning();
-            
+
             return updatedExercise;
           } catch (error) {
             console.error("Error ending class:", error);
             return undefined;
           }
   },
-    
+
   async getActiveClassByQrCode(qrCode: string) {
     try {
       const [classes] = await db.select().from(schema.classes).where(and(eq(schema.classes.qrCode, qrCode),
@@ -258,14 +293,14 @@ export const storage = {
       return classes;
     } catch (error) {
       console.error("Error getting classes by this qr code:", error);
-      return null;
+      return [];
     }
   },
 
 
 
       async createAttendanceRecord(groupData: schema.InsertAttendanceRecord) {
-    
+
     return await db.insert(schema.attendanceRecords).values(groupData).returning();
   },
 
@@ -276,6 +311,40 @@ export const storage = {
     } catch (error) {
       console.error("Error getting classes by this qr code:", error);
       return null;
+    }
+  },
+
+  // Reports methods
+  async getAllReports() {
+    try {
+      const reportsData = await db.select().from(schema.reports).orderBy(desc(schema.reports.createdAt));
+      return reportsData;
+    } catch (error) {
+      console.error("Error getting all reports:", error);
+      return null;
+    }
+  },
+
+  async getReportById(id: number) {
+    try {
+      const result = await db.select().from(schema.reports).where(eq(schema.reports.id, id));
+      return result[0] || null;
+    } catch (error) {
+      console.error("Error getting report by id:", error);
+      return null;
+    }
+  },
+
+  async createReport(reportData: InsertReport) {
+      return await db.insert(schema.reports).values(reportData).returning();
+  },
+
+  async deleteReport(id: number) {
+    try {
+      await db.delete(schema.reports).where(eq(schema.reports.id, id));
+    } catch (error) {
+      console.error("Error deleting report:", error);
+      throw new Error("Failed to delete report");
     }
   },
 };

@@ -329,7 +329,7 @@ const queries =  classes?.sort((a: Class, b: Class) => new Date(b.date).getTime(
   
   const attendanceStats = getActiveClassAttendance(Number(activeClassId));
    const recentClasses = getRecentClasses();
-  console.log(recentClasses)
+
   // Get attendance stats for each subject-group combination
   const getAttendanceBySubject = () => {
     if (!classes || !subjects || !groups) return [];

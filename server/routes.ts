@@ -3,10 +3,12 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { loginSchema, insertAttendanceRecordSchema, departments } from "@shared/schema";
 import { z } from "zod";
-import * as crypto from "crypto";
 import session from "express-session";
 import MemoryStore from "memorystore";
 import bcrypt from "bcryptjs";
+import PDFDocument from "pdfkit";
+import path from 'path'
+import { fileURLToPath } from 'url';
 
 declare module "express-session" {
   interface SessionData {
@@ -940,6 +942,243 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   );
+
+  // Reports management endpoints
+  // Get all reports
+  app.get(
+    "/api/admin/reports",
+    isAuthenticated,
+    hasRole(["admin"]),
+    async (req: Request, res: Response) => {
+      try {
+        const reports = await storage.getAllReports();
+        res.json(reports);
+      } catch (err) {
+        console.error('Ошибка получения отчетов:', err);
+        res.status(500).json({ message: "Ошибка сервера при получении отчетов" });
+      }
+    }
+  );
+
+  // Create new report
+  app.post(
+    "/api/admin/reports",
+    isAuthenticated,
+    hasRole(["admin"]),
+    async (req: Request, res: Response) => {
+      try {
+        const { name, type, period, format, startDate, endDate, data } = req.body;
+        
+        const reportData = {
+          name,
+          type,
+          period,
+          format,
+          createdBy: req.session.userId!,
+          data: data || {}
+        };
+
+        const [newReport] = await storage.createReport(reportData);
+        
+        res.status(201).json(newReport);
+      } catch (err) {
+        console.error('Ошибка создания отчета:', err);
+        res.status(500).json({ message: "Ошибка сервера при создании отчета" });
+      }
+    }
+  );
+
+  // Download report
+  app.get(
+    "/api/admin/reports/:id/download",
+    isAuthenticated,
+    hasRole(["admin"]),
+    async (req: Request, res: Response) => {
+      try {
+        const reportId = parseInt(req.params.id);
+        const report = await storage.getReportById(reportId);
+        
+        if (!report) {
+          return res.status(404).json({ message: "Отчет не найден" });
+        }
+        
+        const filename = `${report.name}_${new Date().toISOString().split('T')[0]}`;
+
+        switch (report.format) {
+          case 'pdf':
+            await generatePDFReport(report, res, filename);
+            break;
+          case 'excel':
+            const excelContent = generateExcelContent(report);
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
+            res.send(excelContent);
+            break;
+          case 'csv':
+            const csvContent = generateCSVContent(report);
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}.csv"`);
+            res.send('\uFEFF' + csvContent); // Add BOM for proper UTF-8 encoding
+            break;
+          default:
+            const jsonContent = JSON.stringify(report.data, null, 2);
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}.json"`);
+            res.send(jsonContent);
+        }
+      } catch (err) {
+        console.error('Ошибка скачивания отчета:', err);
+        res.status(500).json({ message: "Ошибка сервера при скачивании отчета" });
+      }
+    }
+  );
+
+async function generatePDFReport(report: any, res: Response, filename: string) {
+  try {
+    const doc = new PDFDocument({ margin: 50 });
+
+    const safeFilename = encodeURIComponent(`${filename}.pdf`);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${safeFilename}`);
+    res.flushHeaders();
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    // Стримим PDF в ответ
+    doc.pipe(res);
+
+    
+    // 📝 Заголовок
+    doc.font(path.join(__dirname, 'fonts', 'TIMES.TTF')).fontSize(20).text('Отчет системы посещаемости', { align: 'center' });
+    doc.moveDown();
+
+    // 📄 Инфо
+    doc.font(path.join(__dirname, 'fonts', 'TIMES.TTF')).fontSize(14).text('Информация об отчете:');
+    doc.fontSize(12);
+    doc.font(path.join(__dirname, 'fonts', 'TIMES.TTF')).text(`Название: ${report.name}`);
+    doc.font(path.join(__dirname, 'fonts', 'TIMES.TTF')).text(`Тип: ${getReportTypeLabel(report.type)}`);
+    doc.font(path.join(__dirname, 'fonts', 'TIMES.TTF')).text(`Период: ${getReportPeriodLabel(report.period)}`);
+    doc.font(path.join(__dirname, 'fonts', 'TIMES.TTF')).text(`Дата создания: ${new Date(report.createdAt).toLocaleDateString('ru-RU')}`);
+    doc.moveDown();
+
+    // 💾 Пример данных
+    if (report.data?.attendanceByGroup?.length) {
+      doc.font(path.join(__dirname, 'fonts', 'TIMES.TTF')).fontSize(14).text('Посещаемость по группам:');
+      doc.fontSize(10);
+      report.data.attendanceByGroup.forEach((item: any) => {
+        doc.font(path.join(__dirname, 'fonts', 'TIMES.TTF')).text(`${item.groupName || 'Не указано'} — ${item.attendance}%`);
+      });
+      doc.moveDown();
+    }
+
+    // 📎 Футер
+    doc.font(path.join(__dirname, 'fonts', 'TIMES.TTF')).fontSize(8).text(
+      `Отчет сгенерирован ${new Date().toLocaleString('ru-RU')}`,
+      50,
+      doc.page.height - 50,
+      { align: 'center' }
+    );
+
+    doc.end(); // Закрываем документ
+
+  } catch (err) {
+    console.error('Ошибка при генерации PDF:', err);
+    if (!res.headersSent) {
+      res.status(500).send('Ошибка при генерации PDF');
+    }
+  }
+}
+
+
+  // Delete report
+  app.delete(
+    "/api/admin/reports/:id",
+    isAuthenticated,
+    hasRole(["admin"]),
+    async (req: Request, res: Response) => {
+      try {
+        const reportId = parseInt(req.params.id);
+        
+        const report = await storage.getReportById(reportId);
+        if (!report) {
+          return res.status(404).json({ message: "Отчет не найден" });
+        }
+        
+        await storage.deleteReport(reportId);
+        
+        res.status(200).json({ message: "Отчет успешно удален" });
+      } catch (err) {
+        console.error('Ошибка удаления отчета:', err);
+        res.status(500).json({ message: "Ошибка сервера при удалении отчета" });
+      }
+    }
+  );
+
+  function getReportTypeLabel(type: string): string {
+    const types: { [key: string]: string } = {
+      'attendance': 'Посещаемость',
+      'stats': 'Статистика по преподавателям',
+      'groups': 'Статистика по группа',
+      'subjects': 'Статистика по предметам'
+    };
+    return types[type] || type;
+  }
+
+  function getReportPeriodLabel(period: string): string {
+    const periods: { [key: string]: string } = {
+      'day': 'День',
+      'week': 'Неделя',
+      'month': 'Месяц',
+      'quarter': 'Квартал',
+      'year': 'Год'
+    };
+    return periods[period] || period;
+  }
+
+  function generateCSVContent(report: any): string {
+    let csv = `Отчет: ${report.name}\nТип: ${getReportTypeLabel(report.type)}\nПериод: ${getReportPeriodLabel(report.period)}\nДата создания: ${new Date(report.createdAt).toLocaleDateString('ru-RU')}\n\n`;
+    
+    if (report.data) {
+      const data = report.data;
+      
+      if (data.attendanceByGroup && data.attendanceByGroup.length > 0) {
+        csv += "Группа,Посещаемость (%)\n";
+        data.attendanceByGroup.forEach((item: any) => {
+          csv += `"${item.groupName}",${item.attendance}\n`;
+        });
+        csv += "\n";
+      }
+      
+      if (data.teacherActivity && data.teacherActivity.length > 0) {
+        csv += "Преподаватель,Количество занятий\n";
+        data.teacherActivity.forEach((item: any) => {
+          csv += `"${item.teacherName}",${item.classesCount}\n`;
+        });
+        csv += "\n";
+      }
+      
+      if (data.studentsPerGroup && data.studentsPerGroup.length > 0) {
+        csv += "Группа,Количество студентов\n";
+        data.studentsPerGroup.forEach((item: any) => {
+          csv += `"${item.groupName}",${item.studentsCount}\n`;
+        });
+        csv += "\n";
+      }
+      
+      if (data.subjectPopularity && data.subjectPopularity.length > 0) {
+        csv += "Предмет,Количество занятий\n";
+        data.subjectPopularity.forEach((item: any) => {
+          csv += `"${item.subjectName}",${item.classesCount}\n`;
+        });
+      }
+    }
+    
+    return csv;
+  }
+
+  function generateExcelContent(report: any): string {
+    // For simplicity, return CSV content that can be imported to Excel
+    return generateCSVContent(report);
+  }
 
   const httpServer = createServer(app);
   return httpServer;

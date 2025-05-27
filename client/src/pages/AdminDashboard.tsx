@@ -1,23 +1,26 @@
+
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
-import { getQueryFn } from '@/lib/queryClient';
+import { Input } from '@/components/ui/input';
+import { getQueryFn, apiRequest } from '@/lib/queryClient';
 import { formatDateTime, calculateAttendancePercentage } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Users, School, Calendar, ClipboardList, Download, Eye, Trash, FileText } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { useLocation } from 'wouter';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Class, User } from '@shared/schema';
+import { Class,Group, User, Report, Subject, Faculty } from '@shared/schema';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('reports');
   const [, setLocation] = useLocation();
 
@@ -34,30 +37,91 @@ export default function AdminDashboard() {
   });
 
   // Fetch groups
-  const { data: groups, isLoading: groupsLoading } = useQuery({
+  const { data: groups, isLoading: groupsLoading } = useQuery<Group[]>({
     queryKey: ['/api/groups'],
     queryFn: getQueryFn({ on401: 'throw' }),
   });
 
   // Fetch subjects
-  const { data: subjects, isLoading: subjectsLoading } = useQuery({
+  const { data: subjects, isLoading: subjectsLoading } = useQuery<Subject[]>({
     queryKey: ['/api/subjects'],
     queryFn: getQueryFn({ on401: 'throw' }),
   });
 
   // Fetch faculties
-  const { data: faculties, isLoading: facultiesLoading } = useQuery({
+  const { data: faculties, isLoading: facultiesLoading } = useQuery<Faculty[]>({
     queryKey: ['/api/faculties'],
     queryFn: getQueryFn({ on401: 'returnNull' }),
   });
 
-  const isLoading = usersLoading || classesLoading || groupsLoading || subjectsLoading || facultiesLoading;
+  // Fetch reports
+  const { data: reports, isLoading: reportsLoading } = useQuery<Report[]>({
+    queryKey: ['/api/admin/reports'],
+    queryFn: getQueryFn({ on401: 'throw' }),
+  });
+
+  const isLoading = usersLoading || classesLoading || groupsLoading || subjectsLoading || facultiesLoading || reportsLoading;
 
   // Form state for report generation
   const [reportForm, setReportForm] = useState({
+    name: '',
     type: 'attendance',
     period: 'month',
-    format: 'pdf'
+    format: 'pdf',
+    startDate: '',
+    endDate: ''
+  });
+
+  // Mutation for generating reports
+  const generateReportMutation = useMutation({
+    mutationFn: async (reportData: any) => {
+      const response = await apiRequest('POST', '/api/admin/reports', reportData);
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/reports'] });
+      toast({
+        title: 'Отчет создан',
+        description: 'Отчет успешно сформирован и сохранен в базу данных',
+      });
+      setReportForm({
+        name: '',
+        type: 'attendance',
+        period: 'month',
+        format: 'pdf',
+        startDate: '',
+        endDate: ''
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Ошибка',
+        description: error.message || 'Не удалось создать отчет',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Mutation for deleting reports
+  const deleteReportMutation = useMutation({
+        mutationFn: async (reportId: number) => {
+      const response = await apiRequest('DELETE', `/api/admin/reports/${reportId}`);
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/reports'] });
+      toast({
+        title: 'Отчет удален',
+        description: 'Отчет успешно удален из базы данных',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Ошибка',
+        description: error.message || 'Не удалось удалить отчет',
+        variant: 'destructive',
+      });
+    },
   });
 
   const handleReportFormChange = (field: string, value: string) => {
@@ -67,19 +131,131 @@ export default function AdminDashboard() {
     });
   };
 
-  const handleGenerateReport = () => {
-    console.log('Generating report:');
-    toast({
-      title: 'Отчет сформирован',
-      description: 'Отчет успешно сформирован и готов к скачиванию',
-    });
+  const handleGenerateReport = async () => {
+    if (!reportForm.name.trim()) {
+      toast({
+        title: 'Ошибка',
+        description: 'Введите название отчета',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (reportForm.period === 'custom' && (!reportForm.startDate || !reportForm.endDate)) {
+      toast({
+        title: 'Ошибка',
+        description: 'Выберите даты для произвольного периода',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    let reportData: any = {};
+
+    // Generate different types of reports
+    switch (reportForm.type) {
+      case 'attendance':
+        // Generate attendance data
+        reportData = {
+          totalStudents: users?.filter(u => u.role === 'student').length || 0,
+          totalClasses: classes?.length || 0,
+          averageAttendance: 85, // Mock calculation
+          attendanceByGroup: groups?.map(g => ({
+            groupName: g.name,
+            attendance: Math.floor(Math.random() * 30) + 70 // Mock data
+          })) || []
+        };
+        break;
+      case 'stats':
+        // Generate teacher statistics
+        reportData = {
+          totalTeachers: users?.filter(u => u.role === 'teacher').length || 0,
+          classesPerTeacher: classes ? classes.length / (users?.filter(u => u.role === 'teacher').length || 1) : 0,
+          teacherActivity: users?.filter(u => u.role === 'teacher').map(t => ({
+            teacherName: `${t.firstName} ${t.lastName}`,
+            classesCount: Math.floor(Math.random() * 20) + 5 // Mock data
+          })) || []
+        };
+        break;
+      case 'groups':
+        // Generate group statistics
+        reportData = {
+          totalGroups: groups?.length || 0,
+          studentsPerGroup: groups?.map(g => ({
+            groupName: g.name,
+            studentsCount: Math.floor(Math.random() * 25) + 15 // Mock data
+          })) || []
+        };
+        break;
+      case 'subjects':
+        // Generate subject statistics
+        reportData = {
+          totalSubjects: subjects?.length || 0,
+          subjectPopularity: subjects?.map(s => ({
+            subjectName: s.name,
+            classesCount: Math.floor(Math.random() * 30) + 10 // Mock data
+          })) || []
+        };
+        break;
+    }
+
+    const report = {
+      name: reportForm.name,
+      type: reportForm.type,
+      period: reportForm.period,
+      format: reportForm.format,
+      startDate: reportForm.startDate || null,
+      endDate: reportForm.endDate || null,
+      data: reportData
+    };
+
+    generateReportMutation.mutate(report);
+  };
+
+  const handleDownloadReport = async (reportId: number, format: string, filename: string) => {
+    try {
+      const response = await fetch(`/api/admin/reports/${reportId}/download`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Не удалось скачать отчет');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${filename}.${format.toLowerCase()}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: 'Успешно',
+        description: 'Отчет скачан',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка',
+        description: error.message || 'Не удалось скачать отчет',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteReport = (reportId: number) => {
+    if (window.confirm('Вы уверены, что хотите удалить этот отчет?')) {
+      deleteReportMutation.mutate(reportId);
+    }
   };
 
   // Get faculty attendance stats
   const getFacultyStats = () => {
     if (!faculties) return [];
 
-    // Mock data for faculty stats
     return [
       { id: 1, name: 'Физико-математический', percentage: 87 },
       { id: 2, name: 'Информационных технологий', percentage: 83 },
@@ -90,6 +266,27 @@ export default function AdminDashboard() {
   };
 
   const facultyStats = getFacultyStats();
+
+  const getReportTypeLabel = (type: string) => {
+    const types: Record<string, string> = {
+      attendance: 'Посещаемость',
+      stats: 'Статистика по преподавателям',
+      groups: 'Статистика по группам',
+      subjects: 'Статистика по предметам'
+    };
+    return types[type] || type;
+  };
+
+  const getPeriodLabel = (period: string) => {
+    const periods: Record<string, string> = {
+      week: 'Неделя',
+      month: 'Месяц',
+      semester: 'Семестр',
+      year: 'Год',
+      custom: 'Произвольный период'
+    };
+    return periods[period] || period;
+  };
 
   return (
     <div className="mb-6">
@@ -148,7 +345,18 @@ export default function AdminDashboard() {
             <TabsContent value="reports" className="m-0">
               <div className="mb-6">
                 <h3 className="text-lg font-medium text-gray-800 mb-4">Создать отчет</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="reportName" className="block text-sm font-medium text-gray-700 mb-1">
+                      Название отчета
+                    </Label>
+                    <Input
+                      id="reportName"
+                      value={reportForm.name}
+                      onChange={(e) => handleReportFormChange('name', e.target.value)}
+                      placeholder="Введите название отчета"
+                    />
+                  </div>
                   <div>
                     <Label htmlFor="reportType" className="block text-sm font-medium text-gray-700 mb-1">
                       Тип отчета
@@ -188,6 +396,32 @@ export default function AdminDashboard() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {reportForm.period === 'custom' && (
+                    <>
+                      <div>
+                        <Label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
+                          Дата начала
+                        </Label>
+                        <Input
+                          id="startDate"
+                          type="date"
+                          value={reportForm.startDate}
+                          onChange={(e) => handleReportFormChange('startDate', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
+                          Дата окончания
+                        </Label>
+                        <Input
+                          id="endDate"
+                          type="date"
+                          value={reportForm.endDate}
+                          onChange={(e) => handleReportFormChange('endDate', e.target.value)}
+                        />
+                      </div>
+                    </>
+                  )}
                   <div>
                     <Label htmlFor="reportFormat" className="block text-sm font-medium text-gray-700 mb-1">
                       Формат
@@ -206,17 +440,21 @@ export default function AdminDashboard() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="md:col-span-3">
-                    <Button className="w-full" onClick={handleGenerateReport}>
+                  <div className="md:col-span-2 lg:col-span-3">
+                    <Button 
+                      className="w-full" 
+                      onClick={handleGenerateReport}
+                      disabled={generateReportMutation.isPending}
+                    >
                       <ClipboardList className="mr-2 h-4 w-4" />
-                      Сформировать отчет
+                      {generateReportMutation.isPending ? 'Формирование...' : 'Сформировать отчет'}
                     </Button>
                   </div>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-lg font-medium text-gray-800 mb-4">Недавние отчеты</h3>
+                <h3 className="text-lg font-medium text-gray-800 mb-4">Сохраненные отчеты</h3>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -230,73 +468,57 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {/* Sample data */}
-                      <tr>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">Посещаемость за август 2023</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">Посещаемость</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">Месяц</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">20.08.2023</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          <span className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-800">PDF</span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <div className="flex space-x-2">
-                            <Button variant="ghost" size="icon" className="text-primary hover:text-primary-dark">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-700">
-                              <Download className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-700">
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">Статистика по преподавателям</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">Статистика</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">Семестр</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">15.08.2023</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-800">Excel</span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <div className="flex space-x-2">
-                            <Button variant="ghost" size="icon" className="text-primary hover:text-primary-dark">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-700">
-                              <Download className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-700">
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">Статистика по группам 101-105</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">Группы</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">Год</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">10.08.2023</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          <span className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-800">CSV</span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <div className="flex space-x-2">
-                            <Button variant="ghost" size="icon" className="text-primary hover:text-primary-dark">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-700">
-                              <Download className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-700">
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
+                      {reports?.map((report) => (
+                        <tr key={report.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{report.name}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            {getReportTypeLabel(report.type)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            {getPeriodLabel(report.period)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            {formatDateTime(report.createdAt)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            <span className={`px-2 py-1 text-xs rounded ${
+                              report.format === 'pdf' ? 'bg-blue-100 text-blue-800' :
+                              report.format === 'excel' ? 'bg-green-100 text-green-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {report.format.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex space-x-2">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-gray-500 hover:text-gray-700"
+                                onClick={() => handleDownloadReport(report.id, report.format, report.name)}
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-red-500 hover:text-red-700"
+                                onClick={() => handleDeleteReport(report.id)}
+                                disabled={deleteReportMutation.isPending}
+                              >
+                                <Trash className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {(!reports || reports.length === 0) && (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                            Отчеты не найдены
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -323,39 +545,33 @@ export default function AdminDashboard() {
                 </div>
                 <h3 className="text-xl font-medium text-gray-700 mb-2">Управление группами</h3>
                 <p className="text-gray-500 mb-4">Здесь вы можете создавать и редактировать группы студентов</p>
-                <Button className="mt-2"
-                onClick={() => setLocation('/admin/groups')}>
-                  
+                <Button className="mt-2" onClick={() => setLocation('/admin/groups')}>
                   Управление группами
                 </Button>
               </div>
             </TabsContent>
 
-<TabsContent value="departments" className="m-0">
+            <TabsContent value="departments" className="m-0">
               <div className="text-center py-16">
                 <div className="text-gray-400 text-5xl mb-4">
                   <Users className="h-16 w-16 mx-auto opacity-20" />
                 </div>
                 <h3 className="text-xl font-medium text-gray-700 mb-2">Управление кафедрами</h3>
                 <p className="text-gray-500 mb-4">Здесь вы можете создавать и редактировать кафедры</p>
-                <Button className="mt-2"
-                onClick={() => setLocation('/admin/departments')}>
-                  
+                <Button className="mt-2" onClick={() => setLocation('/admin/departments')}>
                   Управление кафедрами
                 </Button>
               </div>
             </TabsContent>
 
-                        <TabsContent value="faculties" className="m-0">
+            <TabsContent value="faculties" className="m-0">
               <div className="text-center py-16">
                 <div className="text-gray-400 text-5xl mb-4">
                   <Users className="h-16 w-16 mx-auto opacity-20" />
                 </div>
                 <h3 className="text-xl font-medium text-gray-700 mb-2">Управление факультетами</h3>
                 <p className="text-gray-500 mb-4">Здесь вы можете создавать и редактировать факультеты</p>
-                <Button className="mt-2"
-                onClick={() => setLocation('/admin/faculties')}>
-                  
+                <Button className="mt-2" onClick={() => setLocation('/admin/faculties')}>
                   Управление факультетами
                 </Button>
               </div>
@@ -368,8 +584,7 @@ export default function AdminDashboard() {
                 </div>
                 <h3 className="text-xl font-medium text-gray-700 mb-2">Управление предметами</h3>
                 <p className="text-gray-500 mb-4">Здесь вы можете добавлять и редактировать учебные предметы</p>
-                <Button className="mt-2"
-                onClick={() => setLocation('/admin/subjects')}>
+                <Button className="mt-2" onClick={() => setLocation('/admin/subjects')}>
                   Управление предметами
                 </Button>
               </div>
@@ -398,7 +613,6 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="col-span-1 lg:col-span-2">
               <div className="bg-gray-50 p-4 rounded-lg">
-                {/* This would be a chart in a real application */}
                 <div className="h-80 flex items-center justify-center">
                   <div className="text-center">
                     <BarChart className="text-gray-400 text-5xl mb-2 mx-auto h-16 w-16" />
