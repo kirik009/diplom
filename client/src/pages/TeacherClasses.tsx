@@ -1,47 +1,42 @@
-import { useState, useEffect } from 'react';
-import { useQuery, useQueryClient, useMutation, useQueries } from '@tanstack/react-query';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { apiRequest, getQueryFn } from '@/lib/queryClient';
-import { formatDateTime, getTimeRemaining, calculateAttendancePercentage } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
-import { QrCode, Users, X, BarChart, Eye, Download, ArrowLeft} from 'lucide-react';
-import QRCodeModal from '@/components/QRCodeModal';
-import { Progress } from '@/components/ui/progress';
-import { useLocation } from 'wouter';
-interface Class {
-  id: number;
-  subjectId: number;
-  teacherId: number;
-  groupId: number;
-  classroom: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  qrCode: string | null;
-  isActive: boolean;
-}
+import { useState, useEffect } from "react";
+import {
+  useQuery,
+  useQueryClient,
+  useMutation,
+  useQueries,
+} from "@tanstack/react-query";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
+import {
+  formatDateTime,
+  getTimeRemaining,
+  calculateAttendancePercentage,
+} from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import {
+  QrCode,
+  Users,
+  X,
+  BarChart,
+  Eye,
+  Download,
+  ArrowLeft,
+} from "lucide-react";
+import QRCodeModal from "@/components/QRCodeModal";
+import { Progress } from "@/components/ui/progress";
+import { useLocation } from "wouter";
+import { AttendanceRecord, Class, Group, Subject } from "@shared/schema";
 
-interface Subject {
-  id: number;
-  name: string;
-}
-
-interface Group {
-  id: number;
-  name: string;
-}
-
-interface AttendanceRecord {
-  id: number;
-  classId: number;
-  studentId: number;
-  timestamp: string;
-  status: string;
-}
 
 interface User {
   id: number;
@@ -54,142 +49,147 @@ interface User {
 }
 
 export default function TeacherClasses() {
- const [, setLocation] = useLocation();
-  
+  const [, setLocation] = useLocation();
+
   // Fetch teacher's classes
   const { data: classes, isLoading: classesLoading } = useQuery<Class[]>({
-    queryKey: ['/api/teacher/classes'],
-    queryFn: getQueryFn({ on401: 'throw' }),
+    queryKey: ["/api/teacher/classes"],
+    queryFn: getQueryFn({ on401: "throw" }),
   });
-  
+
   // Fetch subjects
   const { data: subjects, isLoading: subjectsLoading } = useQuery<Subject[]>({
-    queryKey: ['/api/subjects'],
-    queryFn: getQueryFn({ on401: 'throw' }),
+    queryKey: ["/api/subjects"],
+    queryFn: getQueryFn({ on401: "throw" }),
   });
-  
+
   // Fetch groups
   const { data: groups, isLoading: groupsLoading } = useQuery<Group[]>({
-    queryKey: ['/api/groups'],
-    queryFn: getQueryFn({ on401: 'throw' }),
+    queryKey: ["/api/groups"],
+    queryFn: getQueryFn({ on401: "throw" }),
   });
-  
+
   // Fetch all students
   const { data: users, isLoading: usersLoading } = useQuery<User[]>({
-    queryKey: ['/api/admin/users'],
-    queryFn: getQueryFn({ on401: 'returnNull' }),
+    queryKey: ["/api/admin/users"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
-
-const queries =  classes?.sort((a: Class, b: Class) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  const queries =
+    classes
+      ?.sort(
+        (a: Class, b: Class) =>
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+      )
       .map((classItem) => ({
-    queryKey: [`/api/teacher/classes/${classItem.id}/attendance`],
-    queryFn: async (): Promise<AttendanceRecord[]> => {
-      const res = await fetch(`/api/teacher/classes/${classItem.id}/attendance`);
-      if (!res.ok) throw new Error("Failed to fetch class attendance ");
-      return res.json();
-    },
-  })) || [];
-  const results = useQueries({queries})
+        queryKey: [`/api/teacher/classes/${classItem.id}/attendance`],
+        queryFn: async (): Promise<AttendanceRecord[]> => {
+          const res = await fetch(
+            `/api/teacher/classes/${classItem.id}/attendance`
+          );
+          if (!res.ok) throw new Error("Failed to fetch class attendance ");
+          return res.json();
+        },
+      })) || [];
+  const results = useQueries({ queries });
 
-  
-  
-
-  
-  
   // Calculate class attendance
   const getClassAttendance = (classId: number, index: number) => {
-  
     if (!users || !classes) return { present: 0, total: 0, percentage: 0 };
-    
+
     const classItem = classes.find((cls: Class) => cls.id === classId);
     if (!classItem) return { present: 0, total: 0, percentage: 0 };
-    
+
     // Get all students in this group
-    const studentsInGroup = users.filter((user: User) => 
-      user.role === 'student' && user.groupId === classItem.groupId
+    const studentsInGroup = users.filter(
+      (user: User) =>
+        user.role === "student" && user.groupId === classItem.groupId
     );
-    
+
     const totalStudents = studentsInGroup.length;
-    if (results[index].data === undefined) return null
+    if (results[index].data === undefined) return null;
     const presentStudents = results ? results[index].data.length : 0;
-    
+
     return {
       present: presentStudents,
       total: totalStudents,
-      percentage: calculateAttendancePercentage(presentStudents, totalStudents)
+      percentage: calculateAttendancePercentage(presentStudents, totalStudents),
     };
   };
-  
-  
+
   // Get recent classes
   const getRecentClasses = () => {
     if (!classes || !subjects || !groups) return [];
-    
+
     return [...classes]
-      .sort((a: Class, b: Class) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .sort(
+        (a: Class, b: Class) =>
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+      )
       .map((cls: Class, index: number) => {
         const subject = subjects.find((s: Subject) => s.id === cls.subjectId);
         const group = groups.find((g: Group) => g.id === cls.groupId);
-        
-        
+
         const attendanceStats = getClassAttendance(cls.id, index);
-       
+
         return {
           id: cls.id,
           date: formatDateTime(cls.date),
-          subject: subject ? subject.name : 'Неизвестный предмет',
-          group: group ? group.name : 'Неизвестная группа',
-          attendance: attendanceStats
+          subject: subject ? subject.name : "Неизвестный предмет",
+          group: group ? group.name : "Неизвестная группа",
+          attendance: attendanceStats,
         };
       });
   };
-  
-  const isLoading = classesLoading || subjectsLoading || groupsLoading || usersLoading ;
-   const recentClasses = getRecentClasses();
+
+  const isLoading =
+    classesLoading || subjectsLoading || groupsLoading || usersLoading;
+  const recentClasses = getRecentClasses();
   // Get attendance stats for each subject-group combination
   const getAttendanceBySubject = () => {
     if (!classes || !subjects || !groups) return [];
-    
+
     const subjectGroupMap = new Map();
-    
+
     classes.forEach((cls: Class) => {
       const key = `${cls.subjectId}-${cls.groupId}`;
       if (!subjectGroupMap.has(key)) {
         subjectGroupMap.set(key, {
           subjectId: cls.subjectId,
           groupId: cls.groupId,
-          classes: []
+          classes: [],
         });
       }
       subjectGroupMap.get(key).classes.push(cls);
     });
-    
-    return Array.from(subjectGroupMap.values()).map(item => {
+
+    return Array.from(subjectGroupMap.values()).map((item) => {
       const subject = subjects.find((s: Subject) => s.id === item.subjectId);
       const group = groups.find((g: Group) => g.id === item.groupId);
-      
+
       // Calculate average attendance (mock data for now)
       const attendancePercentage = Math.floor(Math.random() * 30) + 65; // Random between 65-95%
-      
+
       return {
         id: `${item.subjectId}-${item.groupId}`,
-        subject: subject ? subject.name : 'Неизвестный предмет',
-        group: group ? group.name : 'Неизвестная группа',
-        percentage: attendancePercentage
+        subject: subject ? subject.name : "Неизвестный предмет",
+        group: group ? group.name : "Неизвестная группа",
+        percentage: attendancePercentage,
       };
     });
   };
-  
+
   const subjectAttendance = getAttendanceBySubject();
-  
-  
+
   return (
     <div className="mb-6">
-      
-        <Button variant="outline" size="icon" onClick={() => setLocation('/teacher')}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => setLocation("/teacher")}
+      >
+        <ArrowLeft className="h-4 w-4" />
+      </Button>
       {/* Recent Classes */}
       <Card>
         <CardContent className="p-6">
@@ -198,41 +198,77 @@ const queries =  classes?.sort((a: Class, b: Class) => new Date(b.date).getTime(
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Дата</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Предмет</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Группа</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Посещаемость</th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Дата
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Предмет
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Группа
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Посещаемость
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td
+                      colSpan={5}
+                      className="px-6 py-4 text-center text-sm text-gray-500"
+                    >
                       Загрузка...
                     </td>
                   </tr>
                 ) : recentClasses.length > 0 ? (
-                  recentClasses.map(classItem => 
-                    {if (classItem.attendance !== null)
-                    return (
-                    
-                    <tr key={classItem.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{classItem.date}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{classItem.subject}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{classItem.group}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="mr-2">{classItem.attendance.present}/{classItem.attendance.total}</div>
-                          <Progress value={classItem.attendance.percentage} className="w-24 h-2" />
-                        </div>
-                      </td>
-                  
-                    </tr>
-                  )
-})
+                  recentClasses.map((classItem) => {
+                    if (classItem.attendance !== null)
+                      return (
+                        <tr key={classItem.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            {classItem.date}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            {classItem.subject}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            {classItem.group}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="mr-2">
+                                {classItem.attendance.present}/
+                                {classItem.attendance.total}
+                              </div>
+                              <Progress
+                                value={classItem.attendance.percentage}
+                                className="w-24 h-2"
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                  })
                 ) : (
                   <tr>
-                    <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td
+                      colSpan={5}
+                      className="px-6 py-4 text-center text-sm text-gray-500"
+                    >
                       Нет проведенных занятий
                     </td>
                   </tr>
@@ -240,11 +276,9 @@ const queries =  classes?.sort((a: Class, b: Class) => new Date(b.date).getTime(
               </tbody>
             </table>
           </div>
-          <div className="flex justify-center mt-4">
-          </div>
+          <div className="flex justify-center mt-4"></div>
         </CardContent>
       </Card>
-      
     </div>
   );
 }

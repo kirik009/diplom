@@ -6,7 +6,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import Login from "@/pages/Login";
 import StudentDashboard from "@/pages/StudentDashboard";
 import TeacherDashboard from "@/pages/TeacherDashboard";
@@ -105,7 +104,6 @@ function App() {
           <main className="flex-grow container mx-auto px-4 py-6">
             <Router />
           </main>
-          <Footer />
         </div>
         <Toaster />
       </TooltipProvider>

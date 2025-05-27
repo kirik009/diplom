@@ -1,15 +1,21 @@
-import { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-import { School } from 'lucide-react';
-import { Label } from '@/components/ui/label';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { loginSchema } from '@shared/schema';
-import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { School } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { loginSchema } from "@shared/schema";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
 
 export default function Login() {
   const { login } = useAuth();
@@ -19,55 +25,55 @@ export default function Login() {
   const form = useForm({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: '',
-      password: '',
+      username: "",
+      password: "",
     },
   });
 
   const onSubmit = async (data: { username: string; password: string }) => {
     setIsLoading(true);
     try {
-      console.log('Attempting login with credentials:', data);
+      console.log("Attempting login with credentials:", data);
 
       const user = await login(data.username, data.password);
-      console.log('Login successful, received user:', user);
+      console.log("Login successful, received user:", user);
 
       if (!user) {
-        throw new Error('No user data returned');
+        throw new Error("No user data returned");
       }
 
       toast({
-        title: 'Успешный вход',
+        title: "Успешный вход",
         description: `Добро пожаловать, ${user.firstName || user.username}!`,
       });
 
       // Проверяем роль и перенаправляем
       const role = user.role?.toLowerCase();
-      console.log('User role:', role);
+      console.log("User role:", role);
 
       switch (role) {
-        case 'student':
-          window.location.href = '/student';
+        case "student":
+          window.location.href = "/student";
           break;
-        case 'teacher':
-          window.location.href = '/teacher';
+        case "teacher":
+          window.location.href = "/teacher";
           break;
-        case 'admin':
-          window.location.href = '/admin';
+        case "admin":
+          window.location.href = "/admin";
           break;
         default:
-          console.warn('Unknown role, redirecting to home');
-          window.location.href = '/';
+          console.warn("Unknown role, redirecting to home");
+          window.location.href = "/";
       }
     } catch (error: any) {
-      console.error('Full login error:', error);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
+      console.error("Full login error:", error);
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
 
       toast({
-        title: 'Ошибка входа',
-        description: error.message || 'Неверное имя пользователя или пароль',
-        variant: 'destructive',
+        title: "Ошибка входа",
+        description: error.message || "Неверное имя пользователя или пароль",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -81,7 +87,9 @@ export default function Login() {
           <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center mb-2">
             <School className="h-6 w-6 text-white" />
           </div>
-          <CardTitle className="text-2xl font-bold text-center">AttendTrack</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">
+            AttendTrack
+          </CardTitle>
           <p className="text-sm text-muted-foreground text-center">
             Система учета посещаемости
           </p>
@@ -130,12 +138,8 @@ export default function Login() {
                 )}
               />
 
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Вход...' : 'Войти'}
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Вход..." : "Войти"}
               </Button>
             </form>
           </Form>
