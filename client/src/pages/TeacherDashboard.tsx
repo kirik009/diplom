@@ -29,7 +29,7 @@ import { Progress } from "@/components/ui/progress";
 import { QRCodeCanvas } from "qrcode.react";
 import { Link } from "wouter";
 import { AttendanceRecord, Class, Group, Subject } from "@shared/schema";
-
+import { DateTime } from "luxon";
 interface User {
   id: number;
   username: string;
@@ -344,7 +344,7 @@ export default function TeacherDashboard() {
 
         return {
           id: cls.id,
-          date: formatDateTime(cls.date),
+          date: cls.date,
           subject: subject ? subject.name : "Неизвестный предмет",
           group: group ? group.name : "Неизвестная группа",
           attendance: attendanceStats,
@@ -393,8 +393,19 @@ export default function TeacherDashboard() {
   };
 
   const subjectAttendance = getAttendanceBySubject();
+  if (classes?.length) {
+    console.log(new Date(classes[0].date))
+    console.log(typeof classes[0].date)
+const date = new Date(classes[0].date);
 
-  return (
+console.log(new Date(classes[0].date).toLocaleString('ru-RU', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+})); 
+  }return (
     <div className="mb-6">
       <h2 className="text-2xl font-medium text-gray-800 mb-4">
         Панель преподавателя
@@ -709,7 +720,13 @@ export default function TeacherDashboard() {
                       return (
                         <tr key={classItem.id}>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                            {classItem.date}
+                            {new Date(classItem.date).toLocaleString('ru-RU', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+})}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                             {classItem.subject}

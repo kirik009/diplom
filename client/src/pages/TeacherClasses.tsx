@@ -7,36 +7,16 @@ import {
 } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import {
   formatDateTime,
   getTimeRemaining,
   calculateAttendancePercentage,
 } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
-import {
-  QrCode,
-  Users,
-  X,
-  BarChart,
-  Eye,
-  Download,
-  ArrowLeft,
-} from "lucide-react";
-import QRCodeModal from "@/components/QRCodeModal";
+import { ArrowLeft } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useLocation } from "wouter";
 import { AttendanceRecord, Class, Group, Subject } from "@shared/schema";
-
 
 interface User {
   id: number;
@@ -134,7 +114,7 @@ export default function TeacherClasses() {
 
         return {
           id: cls.id,
-          date: formatDateTime(cls.date),
+          date: cls.date,
           subject: subject ? subject.name : "Неизвестный предмет",
           group: group ? group.name : "Неизвестная группа",
           attendance: attendanceStats,
@@ -240,7 +220,13 @@ export default function TeacherClasses() {
                       return (
                         <tr key={classItem.id}>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                            {classItem.date}
+                            {new Date(classItem.date).toLocaleString("ru-RU", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                             {classItem.subject}

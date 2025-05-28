@@ -490,7 +490,7 @@ export const storage = {
       const result = await db
         .select()
         .from(schema.attendanceRecords)
-        .where(eq(schema.attendanceRecords.id, id));
+        .where(eq(schema.attendanceRecords.studentId, id));
       return result;
     } catch (error) {
       console.error("Error getting attendance record by student:", error);

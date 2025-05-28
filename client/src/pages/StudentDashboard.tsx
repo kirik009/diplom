@@ -11,6 +11,7 @@ import GamificationCard from "@/components/GamificationCard";
 import { User } from "@/contexts/AuthContext";
 import { getQueryFn } from "@/lib/queryClient";
 import { AttendanceRecord, Class, Subject } from "@shared/schema";
+import { Link } from "wouter";
 
 
 export default function StudentDashboard() {
@@ -22,7 +23,7 @@ export default function StudentDashboard() {
   const { data: attendanceRecords, isLoading: attendanceLoading } = useQuery<
     AttendanceRecord[]
   >({
-    queryKey: ["/api/student/attendance/"],
+    queryKey: ["/api/student/attendance"],
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
@@ -321,7 +322,7 @@ export default function StudentDashboard() {
           </div>
           <div className="flex justify-center mt-4">
             <Button variant="link" className="text-primary">
-              Показать все
+              <Link href="student/records">Все занятия</Link>
             </Button>
           </div>
         </CardContent>

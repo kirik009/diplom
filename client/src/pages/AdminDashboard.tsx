@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
-import { formatDateTime, calculateAttendancePercentage } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
   Users,
@@ -48,6 +48,7 @@ import {
   AttendanceRecord,
 } from "@shared/schema";
 import { group } from "console";
+import { record } from "zod";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -267,9 +268,9 @@ export default function AdminDashboard() {
                 ) || [];
 
               const studentsAttendance = groupStudents.map((student) => {
-                const attendedClasses = filteredAttendance.filter(
-                  (record) => record.studentId === student.id
-                ).length;
+                const attendedClasses = filteredAttendance
+                  .filter((record) => record.studentId === student.id)
+                  .filter((record) => record.status === "present").length;
 
                 const attendanceRate =
                   filteredClasses.length > 0
@@ -277,7 +278,9 @@ export default function AdminDashboard() {
                     : 0;
 
                 return {
-                  studentName: `${student.firstName} ${student.lastName} ${student.middleName}`,
+                  studentName: `${student.firstName || ""} ${
+                    student.lastName || ""
+                  } ${student.middleName || ""}`,
                   attendance: attendanceRate,
                 };
               });
@@ -672,7 +675,17 @@ export default function AdminDashboard() {
                             {getPeriodLabel(report.period)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                            {formatDateTime(report.createdAt)}
+                            {new Date(report.createdAt).toLocaleString(
+                              "ru-RU",
+                              {
+                                timeZone: "UTC",
+                                year: "numeric",
+                                month: "2-digit",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                             <span

@@ -19,6 +19,7 @@ import AdminFacultyManagement from "./pages/AdminFacultyManagent";
 import AdminSubjectsManagement from "./pages/AdminSubjectsManagement";
 import AdminDepartmentManagement from "./pages/AdminDepartmentManagement";
 import TeacherClasses from "./pages/TeacherClasses";
+import StudentRecords from "./pages/StudentAttendaceRecords";
 // Динамический импорт страницы регистрации
 const Register = React.lazy(() => import("@/pages/Register"));
 
@@ -82,6 +83,8 @@ function Router() {
       <Route path="/admin/subjects" component={() => <ProtectedRoute component={AdminSubjectsManagement} allowedRoles={['admin']} />} />
       <Route path="/admin/departments" component={() => <ProtectedRoute component={AdminDepartmentManagement} allowedRoles={['admin']} />} />
       <Route path="/teacher/classes" component={() => <ProtectedRoute component={TeacherClasses} allowedRoles={['teacher']} />} />
+      <Route path="/student/records" component={() => <ProtectedRoute component={StudentRecords} allowedRoles={['student']} />} />
+      
       <Route path="/">
         {() => {
           window.location.href = getDashboardRoute();

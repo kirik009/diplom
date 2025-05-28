@@ -218,6 +218,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const newClass = {
           ...req.body,
+          
           teacherId: req.session.userId!,
           qrCode: null,
           isActive: true,
@@ -358,6 +359,7 @@ const students = await storage.getUsersByGroupId(cls.groupId);
       try {
         const attendanceRecords = await storage.getAttendanceRecordsByStudent(
           req.session.userId!
+          
         );
         res.json(attendanceRecords);
       } catch (err) {
