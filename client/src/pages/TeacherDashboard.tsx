@@ -28,27 +28,21 @@ import QRCodeModal from "@/components/QRCodeModal";
 import { Progress } from "@/components/ui/progress";
 import { QRCodeCanvas } from "qrcode.react";
 import { Link } from "wouter";
-import { AttendanceRecord, Class, Group, Subject } from "@shared/schema";
-import { DateTime } from "luxon";
-interface User {
-  id: number;
-  username: string;
-  firstName: string;
-  lastName: string;
-  middleName?: string;
-  role: string;
-  groupId?: number;
-}
+import { AttendanceRecord, Class, Department, Group, Subject, User } from "@shared/schema";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useAuth } from "@/hooks/useAuth";
+
 
 export default function TeacherDashboard() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const {user } = useAuth();
   const [isQRModalOpen, setQRModalOpen] = useState(false);
   const [activeClassId, setActiveClassId] = useState<number | null>(null);
   const [qrCodeValue, setQrCodeValue] = useState<string>("");
   const [activeClassInfo, setActiveClassInfo] = useState<any>(null);
-
-  // Form state for creating a class
+   const [userToEdit, setUserToEdit] = useState<Partial<User> | null>(null);
+  
   const [newClass, setNewClass] = useState({
     subjectId: "",
     groupId: "",
@@ -62,6 +56,14 @@ export default function TeacherDashboard() {
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
+  const {
+    data: departments,
+    isLoading: departmentsLoading,
+    error: departmentsError,
+  } = useQuery<Department[]>({
+    queryKey: ["/api/departments"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+  });
   // Fetch subjects
   const { data: subjects, isLoading: subjectsLoading } = useQuery<Subject[]>({
     queryKey: ["/api/subjects"],
@@ -80,11 +82,12 @@ export default function TeacherDashboard() {
     queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
-  const { data: activeAttendanceRecords, isLoading: activeRecordsLoading } = useQuery<AttendanceRecord[]>({
-    queryKey: [`/api/teacher/classes/${activeClassId}/attendance`],
-    queryFn: getQueryFn({ on401: "returnNull" }),
-    enabled: !!activeClassId,
-  });
+  const { data: activeAttendanceRecords, isLoading: activeRecordsLoading } =
+    useQuery<AttendanceRecord[]>({
+      queryKey: [`/api/teacher/classes/${activeClassId}/attendance`],
+      queryFn: getQueryFn({ on401: "returnNull" }),
+      enabled: !!activeClassId,
+    });
 
   const queries =
     classes
@@ -212,8 +215,7 @@ export default function TeacherDashboard() {
     });
   };
 
-
-   const missStudentsMutation = useMutation({
+  const missStudentsMutation = useMutation({
     mutationFn: async (classId: number) => {
       const res = await apiRequest(
         "POST",
@@ -239,10 +241,9 @@ export default function TeacherDashboard() {
   const handleEndClass = () => {
     if (activeClassId) {
       endClassMutation.mutate(activeClassId);
-      
-       missStudentsMutation.mutate(activeClassId);
+
+      missStudentsMutation.mutate(activeClassId);
     }
-   
   };
 
   // Calculate class attendance
@@ -260,7 +261,10 @@ export default function TeacherDashboard() {
 
     const totalStudents = studentsInGroup.length;
     if (results[index].data === undefined) return null;
-    const presentStudents = results ? results[index].data.filter(record => record.status === 'present').length : 0;
+    const presentStudents = results
+      ? results[index].data.filter((record) => record.status === "present")
+          .length
+      : 0;
 
     return {
       present: presentStudents,
@@ -283,7 +287,9 @@ export default function TeacherDashboard() {
     const totalStudents = studentsInGroup.length;
 
     const presentStudents = activeAttendanceRecords
-      ? activeAttendanceRecords.filter((record: AttendanceRecord) => record.status === 'present').length
+      ? activeAttendanceRecords.filter(
+          (record: AttendanceRecord) => record.status === "present"
+        ).length
       : 0;
 
     return {
@@ -307,8 +313,7 @@ export default function TeacherDashboard() {
 
       const totalStudents = studentsInGroup.length;
 
-      
-      const presentStudents = Math.floor(totalStudents/ totalStudents); // Assuming 70% attendance for demo
+      const presentStudents = Math.floor(totalStudents / totalStudents); // Assuming 70% attendance for demo
 
       return {
         id: cls.id,
@@ -353,7 +358,11 @@ export default function TeacherDashboard() {
   };
 
   const isLoading =
-    classesLoading || subjectsLoading || groupsLoading || usersLoading || activeRecordsLoading;
+    classesLoading ||
+    subjectsLoading ||
+    groupsLoading ||
+    usersLoading ||
+    activeRecordsLoading;
 
   const attendanceStats = getActiveClassAttendance(Number(activeClassId));
   const recentClasses = getRecentClasses();
@@ -393,24 +402,46 @@ export default function TeacherDashboard() {
   };
 
   const subjectAttendance = getAttendanceBySubject();
-  if (classes?.length) {
-    console.log(new Date(classes[0].date))
-    console.log(typeof classes[0].date)
-const date = new Date(classes[0].date);
+  
+  const handleUpdateUser = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (userToEdit) {
+          try {
+            await apiRequest(
+              "PUT",
+              '/api/user/change',
+              userToEdit
+            );
+            toast({
+              title: "Пользователь обновлен",
+            });
+    
+            // Обновляем список пользователей
+            queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+          } catch (error) {
+            console.error("Ошибка при обновлении пользователя:", error);
+            toast({
+              title: "Ошибка",
+              description: "Не удалось обновить пользователя.",
+              variant: "destructive",
+            });
+          } finally {
+            setUserToEdit(null);
+          }
+        }
+      };
 
-console.log(new Date(classes[0].date).toLocaleString('ru-RU', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-})); 
-  }return (
+  return (
     <div className="mb-6">
+        <div className="flex items-center justify-between mb-4">
       <h2 className="text-2xl font-medium text-gray-800 mb-4">
         Панель преподавателя
       </h2>
-
+      <Button
+       onClick={() => setUserToEdit(user)}>
+        Изменить профиль
+      </Button>
+      </div>
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         {/* Generate QR Code Card */}
@@ -720,13 +751,13 @@ console.log(new Date(classes[0].date).toLocaleString('ru-RU', {
                       return (
                         <tr key={classItem.id}>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                            {new Date(classItem.date).toLocaleString('ru-RU', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-})}
+                            {new Date(classItem.date).toLocaleString("ru-RU", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                             {classItem.subject}
@@ -769,6 +800,146 @@ console.log(new Date(classes[0].date).toLocaleString('ru-RU', {
           </div>
         </CardContent>
       </Card>
+ <Dialog
+        open={!!userToEdit}
+        onOpenChange={(open) => !open && setUserToEdit(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Обновление пользователя</DialogTitle>
+          </DialogHeader>
+          {userToEdit && (
+            <form onSubmit={handleUpdateUser} className="space-y-4 py-4">
+              <div className="grid grid-cols-1 gap-4 overflow-y-auto max-h-[400px]">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="edit-username"
+                    className="text-sm font-medium"
+                  >
+                    Имя пользователя
+                  </label>
+                  <Input
+                    id="edit-username"
+                    value={userToEdit.username}
+                    onChange={(e) =>
+                      setUserToEdit({ ...userToEdit, username: e.target.value })
+                    }
+                  />
+                </div>
+                <div></div>
+                <div className="space-y-2">
+                  <label
+                    htmlFor="edit-firstname"
+                    className="text-sm font-medium"
+                  >
+                    Имя
+                  </label>
+                  <Input
+                    id="edit-firstname"
+                    value={userToEdit.firstName}
+                    onChange={(e) =>
+                      setUserToEdit({
+                        ...userToEdit,
+                        firstName: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="edit-lastName"
+                    className="text-sm font-medium"
+                  >
+                    Фамилия
+                  </label>
+                  <Input
+                    id="edit-lastName"
+                    value={userToEdit.lastName}
+                    onChange={(e) =>
+                      setUserToEdit({ ...userToEdit, lastName: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label
+                    htmlFor="edit-middlename"
+                    className="text-sm font-medium"
+                  >
+                    Отчество
+                  </label>
+                  <Input
+                    id="edit-middlename"
+                    value={userToEdit.middleName || ""}
+                    onChange={(e) =>
+                      setUserToEdit({
+                        ...userToEdit,
+                        middleName: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="edit-password"
+                    className="text-sm font-medium"
+                  >
+                    Пароль
+                  </label>
+                  <Input
+                    type="password"
+                    id="edit-password"
+                    value={userToEdit.password}
+                    onChange={(e) =>
+                      setUserToEdit({ ...userToEdit, password: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <label htmlFor="edit-groupId" className="text-sm font-medium">
+                    Кафедра
+                  </label>
+                   
+                    <Select
+                      value={
+                        departments?.find(
+                          (f) => f.id === userToEdit?.departmentId
+                        )?.name ?? ""
+                      }
+                      onValueChange={(selectedName) => {
+                        const selectedFaculty = departments?.find(
+                          (f) => f.name === selectedName
+                        );
+                        if (selectedFaculty) {
+                          setUserToEdit({
+                            ...userToEdit,
+                            departmentId: selectedFaculty.id,
+                          });
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Выберите кафедру" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {departments?.map((faculty) => (
+                          <SelectItem key={faculty.id} value={faculty.name}>
+                            {faculty.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit">Обновить профиль</Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* QR Code Modal */}
       <QRCodeModal

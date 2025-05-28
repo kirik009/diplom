@@ -99,7 +99,7 @@ export const storage = {
 
   async getAllUsers() {
     try {
-      const users = await db.select().from(schema.users);
+      const users = await db.select().from(schema.users).orderBy(schema.users.id);
       return users;
     } catch (error) {
       console.error("Error getting all users:", error);
@@ -109,7 +109,7 @@ export const storage = {
 
     async getUsersByGroupId(groupId: number) {
     try {
-      const users = await db.select().from(schema.users).where(eq(schema.users.groupId, groupId));
+      const users = await db.select().from(schema.users).where(eq(schema.users.groupId, groupId)).orderBy(schema.users.id);
       return users;
     } catch (error) {
       console.error("Error getting all users:", error);
@@ -128,7 +128,7 @@ export const storage = {
 
   async getAllClasses() {
     try {
-      const users = await db.select().from(schema.classes);
+      const users = await db.select().from(schema.classes).orderBy(schema.classes.id);
       return users;
     } catch (error) {
       console.error("Error getting all users:", error);
@@ -158,7 +158,7 @@ export const storage = {
         .leftJoin(
           schema.faculties,
           eq(schema.faculties.id, schema.groups.facultyId)
-        );
+        ).orderBy(schema.groups.id);
       return groups;
     } catch (error) {
       console.error("Error getting all groups:", error);
@@ -179,7 +179,7 @@ export const storage = {
         .leftJoin(
           schema.faculties,
           eq(schema.faculties.id, schema.departments.facultyId)
-        );
+        ).orderBy(schema.departments.id);
       return departments;
     } catch (error) {
       console.error("Error getting all groups:", error);
@@ -189,7 +189,7 @@ export const storage = {
 
   async getAllSubjects() {
     try {
-      const subjects = await db.select().from(schema.subjects);
+      const subjects = await db.select().from(schema.subjects).orderBy(schema.subjects.id);
       return subjects;
     } catch (error) {
       console.error("Error getting all groups:", error);
@@ -199,7 +199,7 @@ export const storage = {
 
   async getAllFaculties() {
     try {
-      const faculties = await db.select().from(schema.faculties);
+      const faculties = await db.select().from(schema.faculties).orderBy(schema.faculties.id);
       return faculties;
     } catch (error) {
       console.error("Error getting all faculties:", error);
@@ -450,7 +450,7 @@ export const storage = {
       const classes = await db
         .select()
         .from(schema.users)
-        .where(eq(schema.users.groupId, groupId));
+        .where(eq(schema.users.groupId, groupId)).orderBy(schema.users.id);
       return classes;
     } catch (error) {
       console.error("Error getting classes by this qr code:", error);
@@ -490,7 +490,7 @@ export const storage = {
       const result = await db
         .select()
         .from(schema.attendanceRecords)
-        .where(eq(schema.attendanceRecords.studentId, id));
+        .where(eq(schema.attendanceRecords.studentId, id)).orderBy(desc(schema.attendanceRecords.timestamp));
       return result;
     } catch (error) {
       console.error("Error getting attendance record by student:", error);

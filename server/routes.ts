@@ -58,6 +58,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Регистрация нового пользователя
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
+      console.log(req.body)
       // Создаем пользователя с ролью "student" по умолчанию
       const {
         username,
@@ -104,7 +105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("Login attempt received for:", req.body.username);
       const credentials = loginSchema.parse(req.body);
-
+      console.log(credentials)
       // Обычный путь через базу данных
       const user = await storage.getUserByUsername(credentials.username);
 
@@ -118,7 +119,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Простая проверка паролей для демо-версии
       const passwordMatch = await bcrypt.compare(
-        credentials.password,
+        credentials.password1,
         user.password
       );
 
@@ -594,6 +595,72 @@ const students = await storage.getUsersByGroupId(cls.groupId);
     }
   );
 
+
+   app.put(
+    "/api/user/change",
+    isAuthenticated,
+    async (req: Request, res: Response) => {
+      try {
+        
+        const {
+          username,
+          password,
+          role,
+          firstName,
+          lastName,
+          middleName,
+          groupId,
+          departmentId,
+        } = req.body;
+
+        // Проверяем, существует ли пользователь
+        if (!req.session.userId) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const user = await storage.getUserById(req.session.userId);
+        if (!user) {
+          return res.status(404).json({ message: "Пользователь не найден" });
+        }
+
+        // Если изменился username, проверяем, что он не занят
+        if (username !== user.username) {
+          const existingUser = await storage.getUserByUsername(username);
+          if (existingUser && existingUser.id !== req.session.userId) {
+            return res
+              .status(400)
+              .json({ message: "Пользователь с таким именем уже существует" });
+          }
+        }
+
+        // Обновляем пользователя
+        const updatedUser = await storage.updateUser(req.session.userId, {
+          username,
+          ...(password ? { password } : {}), // Обновляем пароль только если он был предоставлен
+          role,
+          firstName,
+          lastName,
+          middleName: middleName || null,
+          groupId: groupId || null,
+          departmentId: departmentId || null,
+        });
+
+        if (updatedUser) {
+          const { password: _, ...userWithoutPassword } = updatedUser;
+
+          console.log(
+            `Обновлен пользователь администратором: ${username}, ID: ${req.session.userId}`
+          );
+          res.json(userWithoutPassword);
+        }
+      } catch (err) {
+        console.error("Ошибка обновления пользователя:", err);
+        res
+          .status(500)
+          .json({ message: "Ошибка сервера при обновлении пользователя" });
+      }
+    }
+  );
+
   // Delete user (admin only)
   app.delete(
     "/api/admin/users/:id",
@@ -688,7 +755,6 @@ const students = await storage.getUsersByGroupId(cls.groupId);
   // Get all groups
   app.get(
     "/api/groups",
-    isAuthenticated,
     async (req: Request, res: Response) => {
       try {
         const groups = await storage.getAllGroups();

@@ -8,17 +8,21 @@ import { formatDateTime, calculateAttendancePercentage } from "@/lib/utils";
 import { Camera, BarChart, Award } from "lucide-react";
 import QRScannerModal from "@/components/QRScannerModal";
 import GamificationCard from "@/components/GamificationCard";
-import { User } from "@/contexts/AuthContext";
-import { getQueryFn } from "@/lib/queryClient";
-import { AttendanceRecord, Class, Subject } from "@shared/schema";
+
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
+import { AttendanceRecord, Class, Group, Subject, User } from "@shared/schema";
 import { Link } from "wouter";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { toast } from "@/hooks/use-toast";
 
 
 export default function StudentDashboard() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
-
+ const [userToEdit, setUserToEdit] = useState<Partial<User> | null>(null);
   // Fetch attendance records
   const { data: attendanceRecords, isLoading: attendanceLoading } = useQuery<
     AttendanceRecord[]
@@ -45,8 +49,16 @@ export default function StudentDashboard() {
     queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
+    const {
+      data: groups,
+      isLoading: groupsLoading,
+      error: groupsError,
+    } = useQuery<Group[]>({
+      queryKey: ["/api/groups"],
+      queryFn: getQueryFn({ on401: "returnNull" }),
+    });
   const isLoading =
-    attendanceLoading || classesLoading || subjectsLoading || teachersLoading;
+    attendanceLoading || classesLoading || subjectsLoading || teachersLoading || groupsLoading;
 
   // Calculate attendance statistics
   const calculateStats = () => {
@@ -170,13 +182,45 @@ export default function StudentDashboard() {
     queryClient.invalidateQueries({ queryKey: ["/api/student/attendance"] });
   };
 
-  // Skip demo buttons for production
+  const handleUpdateUser = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (userToEdit) {
+        try {
+          await apiRequest(
+            "PUT",
+            '/api/user/change',
+            userToEdit
+          );
+          toast({
+            title: "Пользователь обновлен",
+          });
+  
+          // Обновляем список пользователей
+          queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+        } catch (error) {
+          console.error("Ошибка при обновлении пользователя:", error);
+          toast({
+            title: "Ошибка",
+            description: "Не удалось обновить пользователя.",
+            variant: "destructive",
+          });
+        } finally {
+          setUserToEdit(null);
+        }
+      }
+    };
+
   return (
     <div className="mb-6">
+      <div className="flex items-center justify-between mb-4">
       <h2 className="text-2xl font-medium text-gray-800 mb-4">
         Панель студента
       </h2>
-
+      <Button
+       onClick={() => setUserToEdit(user)}>
+        Изменить профиль
+      </Button>
+      </div>
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         {/* Scan QR Code Card */}
@@ -227,10 +271,7 @@ export default function StudentDashboard() {
                 <div className="text-sm text-gray-500">Эта неделя</div>
               </div>
             </div>
-            <Button variant="outline" className="w-full">
-              <BarChart className="mr-2 h-4 w-4" />
-              Подробная статистика
-            </Button>
+          
           </CardContent>
         </Card>
       </div>
@@ -327,6 +368,148 @@ export default function StudentDashboard() {
           </div>
         </CardContent>
       </Card>
+
+
+  <Dialog
+        open={!!userToEdit}
+        onOpenChange={(open) => !open && setUserToEdit(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Обновление пользователя</DialogTitle>
+          </DialogHeader>
+          {userToEdit && (
+            <form onSubmit={handleUpdateUser} className="space-y-4 py-4">
+              <div className="grid grid-cols-1 gap-4 overflow-y-auto max-h-[400px]">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="edit-username"
+                    className="text-sm font-medium"
+                  >
+                    Имя пользователя
+                  </label>
+                  <Input
+                    id="edit-username"
+                    value={userToEdit.username}
+                    onChange={(e) =>
+                      setUserToEdit({ ...userToEdit, username: e.target.value })
+                    }
+                  />
+                </div>
+                <div></div>
+                <div className="space-y-2">
+                  <label
+                    htmlFor="edit-firstname"
+                    className="text-sm font-medium"
+                  >
+                    Имя
+                  </label>
+                  <Input
+                    id="edit-firstname"
+                    value={userToEdit.firstName}
+                    onChange={(e) =>
+                      setUserToEdit({
+                        ...userToEdit,
+                        firstName: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="edit-lastName"
+                    className="text-sm font-medium"
+                  >
+                    Фамилия
+                  </label>
+                  <Input
+                    id="edit-lastName"
+                    value={userToEdit.lastName}
+                    onChange={(e) =>
+                      setUserToEdit({ ...userToEdit, lastName: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label
+                    htmlFor="edit-middlename"
+                    className="text-sm font-medium"
+                  >
+                    Отчество
+                  </label>
+                  <Input
+                    id="edit-middlename"
+                    value={userToEdit.middleName || ""}
+                    onChange={(e) =>
+                      setUserToEdit({
+                        ...userToEdit,
+                        middleName: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="edit-password"
+                    className="text-sm font-medium"
+                  >
+                    Пароль
+                  </label>
+                  <Input
+                    type="password"
+                    id="edit-password"
+                    value={userToEdit.password}
+                    onChange={(e) =>
+                      setUserToEdit({ ...userToEdit, password: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <label htmlFor="edit-groupId" className="text-sm font-medium">
+                    Группа
+                  </label>
+                   
+                    <Select
+                      value={
+                        groups?.find((f) => f.id === userToEdit?.groupId)
+                          ?.name ?? ""
+                      }
+                      onValueChange={(selectedName) => {
+                        const selectedFaculty = groups?.find(
+                          (f) => f.name === selectedName
+                        );
+                        if (selectedFaculty) {
+                          setUserToEdit({
+                            ...userToEdit,
+                            groupId: selectedFaculty.id,
+                          });
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Выберите группу" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {groups?.map((faculty) => (
+                          <SelectItem key={faculty.id} value={faculty.name}>
+                            {faculty.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit">Обновить профиль</Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
 
       {/* QR Scanner Modal */}
       <QRScannerModal
